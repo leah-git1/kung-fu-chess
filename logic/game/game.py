@@ -6,7 +6,7 @@ from piece.piece_type import MovementStrategyFactory
 class Game:
 
 
-    MOVE_DURATION = 2000
+    MOVE_DURATION_PER_CELL = 1000
 
 
     def __init__(self, board):
@@ -31,7 +31,6 @@ class Game:
 
 
 
-        # אין בחירה קיימת
         if self.selected is None:
 
 
@@ -43,7 +42,6 @@ class Game:
 
 
 
-        # לחיצה על אותו כלי
         if self.selected == (row,col):
 
             self.selected = None
@@ -51,7 +49,6 @@ class Game:
 
 
 
-        # לחיצה על כלי מאותו צבע
         if target != "." and self.same_color(
             self.board.get_piece(*self.selected),
             target
@@ -62,7 +59,6 @@ class Game:
 
 
 
-        # יצירת תנועה
         piece = self.board.get_piece(
             *self.selected
         )
@@ -70,14 +66,15 @@ class Game:
         if not self._is_legal_move(piece, self.selected, (row, col)):
             return
 
-        if self.move_manager.is_piece_in_motion(self.selected):
+        if self.move_manager.is_any_piece_in_motion():
             return
 
+        duration = self._move_duration(self.selected, (row, col))
         move = Move(
             piece,
             self.selected,
             (row,col),
-            self.current_time + self.MOVE_DURATION
+            self.current_time + duration
         )
 
 
@@ -85,6 +82,13 @@ class Game:
 
         self.selected = None
 
+
+
+    def _move_duration(self, start, end) -> int:
+        sr, sc = start
+        er, ec = end
+        cells = max(abs(er - sr), abs(ec - sc))
+        return cells * self.MOVE_DURATION_PER_CELL
 
 
     def _is_legal_move(self, piece, start, end):

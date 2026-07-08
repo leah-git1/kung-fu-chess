@@ -8,8 +8,8 @@ class MoveManager:
         self.moves.append(move)
 
 
-    def is_piece_in_motion(self, position) -> bool:
-        return any(m.start == position for m in self.moves)
+    def is_any_piece_in_motion(self) -> bool:
+        return len(self.moves) > 0
 
 
     def update(self, current_time, board):

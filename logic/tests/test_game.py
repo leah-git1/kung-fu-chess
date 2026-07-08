@@ -2,7 +2,7 @@ from board.board import Board
 from game.game import Game
 
 
-DURATION = Game.MOVE_DURATION
+PER_CELL = Game.MOVE_DURATION_PER_CELL
 
 
 def create_game():
@@ -53,13 +53,13 @@ def test_move_created_after_second_click():
 
 
 def test_wait_finishes_move():
-
+    # 1-cell move takes exactly PER_CELL ms
     game=create_game()
 
     game.handle_click(0,0)
     game.handle_click(1,0)
 
-    game.advance_time(DURATION)
+    game.advance_time(PER_CELL)
 
     assert game.board.get_piece(1,0)=="wK"
     assert game.board.get_piece(0,0)=="."
@@ -73,7 +73,7 @@ def test_piece_still_at_origin_before_arrival():
     game.handle_click(0,0)
     game.handle_click(1,0)
 
-    game.advance_time(DURATION - 1)
+    game.advance_time(PER_CELL - 1)
 
     assert game.board.get_piece(0,0)=="wK"
     assert game.board.get_piece(1,0)=="."
@@ -87,7 +87,7 @@ def test_piece_arrives_exactly_at_finish_time():
     game.handle_click(0,0)
     game.handle_click(1,0)
 
-    game.advance_time(DURATION)
+    game.advance_time(PER_CELL)
 
     assert game.board.get_piece(1,0)=="wK"
     assert game.board.get_piece(0,0)=="."
@@ -95,49 +95,80 @@ def test_piece_arrives_exactly_at_finish_time():
 
 
 def test_piece_not_at_origin_after_arrival():
-    # Confirms the origin is cleared once the move completes
+
     game=create_game()
 
     game.handle_click(0,0)
     game.handle_click(1,0)
 
-    game.advance_time(DURATION // 2)
+    game.advance_time(PER_CELL // 2)
     assert game.board.get_piece(0,0)=="wK"
 
-    game.advance_time(DURATION // 2)
+    game.advance_time(PER_CELL // 2)
     assert game.board.get_piece(0,0)=="."
 
 
 
 def test_piece_in_transit_after_half_duration():
-    # Explicit mid-flight check: board unchanged at the halfway point
+
     game=create_game()
 
     game.handle_click(0,0)
     game.handle_click(1,0)
 
-    game.advance_time(DURATION // 2)
+    game.advance_time(PER_CELL // 2)
 
     assert game.board.get_piece(0,0)=="wK"
     assert game.board.get_piece(1,0)=="."
 
 
 
+def test_two_cell_move_takes_two_units():
+    # wR (0,0) → (0,2) is 2 cells; must still be in transit after PER_CELL
+    board = Board([["wR",".","."],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)
+
+    game.advance_time(PER_CELL)
+    assert game.board.get_piece(0,0)=="wR"  # still in transit
+
+    game.advance_time(PER_CELL)
+    assert game.board.get_piece(0,2)=="wR"  # arrived
+
+
+
 def test_cannot_redirect_piece_in_motion():
-    # A second move command while the piece is in flight must be ignored
+    # While any piece is in flight no new move may be issued
     game=create_game()
 
     game.handle_click(0,0)
-    game.handle_click(1,0)  # first move: wK → (1,0)
+    game.handle_click(1,0)
 
-    game.advance_time(DURATION // 2)  # still in transit
+    game.advance_time(PER_CELL // 2)  # still in transit
 
-    game.handle_click(0,0)  # try to select origin (piece still shown there)
-    game.handle_click(0,1)  # try to redirect to (0,1)
+    game.handle_click(0,0)
+    game.handle_click(0,1)  # attempt redirect — must be ignored
 
-    # Only the original move must exist; no second move queued
     assert len(game.move_manager.moves) == 1
     assert game.move_manager.moves[0].end == (1, 0)
+
+
+
+def test_second_color_blocked_while_first_in_motion():
+    # Global lock: black cannot move while white is in flight
+    board = Board([["wR",".","."],[".",".","."],[".","bR","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)  # white rook starts moving
+
+    game.handle_click(2,1)
+    game.handle_click(2,2)  # black rook attempt — must be rejected
+
+    assert len(game.move_manager.moves) == 1
+    assert game.move_manager.moves[0].piece == "wR"
 
 
 
@@ -146,14 +177,14 @@ def test_piece_can_move_again_after_arrival():
     game=create_game()
 
     game.handle_click(0,0)
-    game.handle_click(1,0)  # first move: wK (0,0) → (1,0)
+    game.handle_click(1,0)
 
-    game.advance_time(DURATION)  # piece arrives at (1,0)
+    game.advance_time(PER_CELL)  # piece arrives at (1,0)
 
     game.handle_click(1,0)
-    game.handle_click(2,0)  # second move: wK (1,0) → (2,0)
+    game.handle_click(2,0)
 
-    game.advance_time(DURATION)
+    game.advance_time(PER_CELL)
 
     assert game.board.get_piece(2,0)=="wK"
     assert game.board.get_piece(1,0)=="."
