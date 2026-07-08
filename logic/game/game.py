@@ -6,7 +6,7 @@ from piece.piece_type import MovementStrategyFactory
 class Game:
 
 
-    MOVE_DURATION = 1000
+    MOVE_DURATION = 2000
 
 
     def __init__(self, board):
