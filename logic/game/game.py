@@ -1,28 +1,23 @@
-from moves.move import Move
-from moves.move_manager import MoveManager
+from moves.move_action import MoveAction
+from moves.jump_action import JumpAction
+from moves.action_manager import ActionManager
 from piece.piece_type import MovementStrategyFactory, PieceType
 
 
 class Game:
 
-
     MOVE_DURATION_PER_CELL = 1000
+    JUMP_DURATION = 1000
     _KING_TYPE_CHAR = PieceType.KING.value
     _PAWN_TYPE_CHAR = PieceType.PAWN.value
     _QUEEN_TYPE_CHAR = PieceType.QUEEN.value
-    _PROMOTION_ROW_BY_COLOR = {"w": 0, "b": -1}  # -1 resolved at runtime
 
 
     def __init__(self, board):
-
         self.board = board
-
         self.selected = None
-
         self.current_time = 0
-
-        self.move_manager = MoveManager()
-
+        self.action_manager = ActionManager()
         self.game_over = False
 
 
@@ -35,56 +30,66 @@ class Game:
         if not self.board.is_inside(row, col):
             return
 
-
         target = self.board.get_piece(row, col)
 
-
-
         if self.selected is None:
-
             if target != ".":
                 self.selected = (row, col)
-
             return
 
-
-
         if self.selected == (row, col):
-
             self.selected = None
             return
 
-
-
         if target != "." and self.same_color(
-            self.board.get_piece(*self.selected),
-            target
+            self.board.get_piece(*self.selected), target
         ):
-
             self.selected = (row, col)
             return
-
-
 
         piece = self.board.get_piece(*self.selected)
 
         if not self._is_legal_move(piece, self.selected, (row, col)):
             return
 
-        if self.move_manager.is_any_piece_in_motion():
+        if self.action_manager.is_any_moving():
             return
 
         duration = self._move_duration(self.selected, (row, col))
-        move = Move(
+        self.action_manager.add(MoveAction(
             piece,
             self.selected,
             (row, col),
             self.current_time + duration
-        )
-
-        self.move_manager.add_move(move)
-
+        ))
         self.selected = None
+
+
+
+    def handle_jump(self, row, col):
+
+        if self.game_over:
+            return
+
+        if not self.board.is_inside(row, col):
+            return
+
+        piece = self.board.get_piece(row, col)
+
+        if piece is None or piece == ".":
+            return
+
+        if self.action_manager.is_any_moving():
+            return
+
+        if self.action_manager.is_airborne((row, col)):
+            return
+
+        self.action_manager.add(JumpAction(
+            piece,
+            (row, col),
+            self.current_time + self.JUMP_DURATION
+        ))
 
 
 
@@ -94,14 +99,13 @@ class Game:
             return
 
         self.current_time += milliseconds
-
-        self.update_moves()
-
+        self._tick()
 
 
-    def update_moves(self):
 
-        captured, applied_moves = self.move_manager.update(
+    def _tick(self):
+
+        captured, applied_moves = self.action_manager.update(
             self.current_time,
             self.board
         )
@@ -114,14 +118,16 @@ class Game:
 
 
 
-    def _apply_promotion_if_needed(self, move):
-        piece = self.board.get_piece(*move.end)
+    def _apply_promotion_if_needed(self, move: MoveAction):
+        piece = self.board.get_piece(*move.destination)
         if piece is None or piece[1] != self._PAWN_TYPE_CHAR:
             return
         color = piece[0]
         promotion_row = 0 if color == "w" else self.board.rows - 1
-        if move.end[0] == promotion_row:
-            self.board.grid[move.end[0]][move.end[1]] = color + self._QUEEN_TYPE_CHAR
+        if move.destination[0] == promotion_row:
+            self.board.grid[move.destination[0]][move.destination[1]] = (
+                color + self._QUEEN_TYPE_CHAR
+            )
 
 
 
@@ -133,12 +139,11 @@ class Game:
     def _move_duration(self, start, end) -> int:
         sr, sc = start
         er, ec = end
-        cells = max(abs(er - sr), abs(ec - sc))
-        return cells * self.MOVE_DURATION_PER_CELL
+        return max(abs(er - sr), abs(ec - sc)) * self.MOVE_DURATION_PER_CELL
 
 
 
-    def _is_legal_move(self, piece, start, end):
+    def _is_legal_move(self, piece, start, end) -> bool:
         strategy = MovementStrategyFactory.for_token(piece)
         if strategy is None:
             return False
@@ -146,9 +151,11 @@ class Game:
 
 
 
-    def same_color(self, p1, p2):
+    def update_moves(self):
+        self._tick()
 
+
+    def same_color(self, p1, p2) -> bool:
         if p1 is None or p2 is None:
             return False
-
         return p1[0] == p2[0]

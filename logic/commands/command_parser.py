@@ -1,5 +1,6 @@
 from commands.commands import Command, CommandType
 from commands.click_command import ClickCommand
+from commands.jump_command import JumpCommand
 from commands.wait_command import WaitCommand
 from commands.print_command import PrintBoardCommand
 
@@ -70,6 +71,8 @@ class CommandParser:
 
         if command_type == CommandType.CLICK:
             return ClickCommand(parameters[0], parameters[1])
+        elif command_type == CommandType.JUMP:
+            return JumpCommand(parameters[0], parameters[1])
         elif command_type == CommandType.WAIT:
             return WaitCommand(parameters[0])
         elif command_type == CommandType.PRINT_BOARD:
