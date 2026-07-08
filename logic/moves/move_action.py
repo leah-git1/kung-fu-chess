@@ -11,7 +11,7 @@ class MoveAction(Action):
     def resolve(self, board, captured: list, applied: list):
         destination_piece = board.get_piece(*self.destination)
 
-        if destination_piece != "." and destination_piece[0] == self.piece[0]:
+        if destination_piece != "." and destination_piece.is_same_color(self.piece):
             # Friendly at destination — cancel silently, piece stays at origin
             return
 

@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+import config
+from piece.piece import Piece
 
 
 class MovementStrategy(ABC):
@@ -11,10 +13,6 @@ class MovementStrategy(ABC):
 # ---------------------------------------------------------------------------
 # Shared helpers (DRY: used by all strategies)
 # ---------------------------------------------------------------------------
-
-def _color(piece: str) -> str:
-    return piece[0]
-
 
 def _is_straight(start, end) -> bool:
     sr, sc = start
@@ -36,17 +34,17 @@ def _path_is_clear(start, end, board) -> bool:
     dc = 0 if ec == sc else (1 if ec > sc else -1)
     r, c = sr + dr, sc + dc
     while (r, c) != (er, ec):
-        if board.get_piece(r, c) != ".":
+        if board.get_piece(r, c) != Piece.EMPTY:
             return False
         r += dr
         c += dc
     return True
 
 
-def _destination_is_capturable(moving_piece: str, end, board) -> bool:
+def _destination_is_capturable(moving_piece, end, board) -> bool:
     """Returns True if the destination is empty or occupied by an enemy."""
     target = board.get_piece(*end)
-    return target == "." or _color(target) != _color(moving_piece)
+    return target == Piece.EMPTY or not moving_piece.is_same_color(target)
 
 
 # ---------------------------------------------------------------------------
@@ -55,13 +53,11 @@ def _destination_is_capturable(moving_piece: str, end, board) -> bool:
 
 class KingMovement(MovementStrategy):
 
-    MAX_DISTANCE = 1
-
     def is_legal(self, moving_piece, start, end, board) -> bool:
         sr, sc = start
         er, ec = end
         return (
-            max(abs(er - sr), abs(ec - sc)) == self.MAX_DISTANCE
+            max(abs(er - sr), abs(ec - sc)) == config.KING_MAX_DISTANCE
             and _destination_is_capturable(moving_piece, end, board)
         )
 
@@ -115,12 +111,12 @@ class KnightMovement(MovementStrategy):
 
 
 class PawnMovement(MovementStrategy):
-    """Single class for both colors — direction is derived from the piece token."""
+    """Single class for both colors — direction is derived from the piece's color."""
 
     FORWARD_BY_COLOR = {"w": -1, "b": 1}
 
     def is_legal(self, moving_piece, start, end, board) -> bool:
-        color = _color(moving_piece)
+        color = moving_piece.color
         forward = self.FORWARD_BY_COLOR[color]
         sr, sc = start
         er, ec = end
@@ -144,7 +140,7 @@ class PawnMovement(MovementStrategy):
 
         if is_diagonal_step:
             target = board.get_piece(*end)
-            return target != "." and _color(target) != color
+            return target != "." and not moving_piece.is_same_color(target)
 
         return False
 

@@ -32,17 +32,43 @@ _STRATEGY_MAP = {
 class MovementStrategyFactory:
 
     @staticmethod
+    def for_piece(piece):
+        """
+        Returns the MovementStrategy for a Piece object.
+        Returns None if no strategy is registered for the piece type.
+        """
+        if piece is None or piece.piece_type is None:
+            return None
+        strategy_cls = _STRATEGY_MAP.get(piece.piece_type)
+        return strategy_cls() if strategy_cls else None
+
+    @staticmethod
     def for_token(token: str):
         """
-        Returns the MovementStrategy for a piece token (e.g. 'wK', 'bR').
-        Returns None for tokens without a registered strategy (e.g. pawn, empty).
+        Returns the MovementStrategy for a token string like 'wK'.
+        Returns None for empty cells or unknown tokens.
         """
-        if len(token) < 2:
+        if token == ".":
             return None
-        type_char = token[1]
-        try:
-            piece_type = PieceType(type_char)
-        except ValueError:
+        piece = _parse_token(token)
+        return MovementStrategyFactory.for_piece(piece) if piece else None
+
+
+def _parse_token(token: str):
+    """Helper to convert a token string to a Piece object for factory lookup."""
+    if token == "." or not token or len(token) != 2:
+        return None
+    try:
+        from piece.piece import Piece
+        color = token[0]
+        piece_type_char = token[1]
+        piece_type = None
+        for pt in PieceType:
+            if pt.value == piece_type_char:
+                piece_type = pt
+                break
+        if piece_type is None:
             return None
-        strategy_cls = _STRATEGY_MAP.get(piece_type)
-        return strategy_cls() if strategy_cls else None
+        return Piece(color=color, piece_type=piece_type)
+    except:
+        return None

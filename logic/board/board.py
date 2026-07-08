@@ -1,3 +1,6 @@
+import config
+from piece.piece import Piece
+
 class Board:
 
 
@@ -36,12 +39,17 @@ class Board:
 
         self.grid[er][ec]=self.grid[sr][sc]
 
-        self.grid[sr][sc]="."
+        self.grid[sr][sc]=Piece.EMPTY
+
+    def set_piece(self, row, col, piece):
+        """Set a piece at a specific location."""
+        if self.is_inside(row, col):
+            self.grid[row][col] = piece
 
 
 
     def display(self):
 
         for row in self.grid:
-
-            print(" ".join(row))
+            row_str = " ".join([cell if isinstance(cell, str) else cell.display() for cell in row])
+            print(row_str)

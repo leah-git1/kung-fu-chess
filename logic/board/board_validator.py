@@ -1,4 +1,5 @@
 from board.piece_registry import PieceRegistry
+from piece.piece import Piece
 
 
 class BoardValidator:

@@ -51,6 +51,6 @@ class ActionManager:
         return any(
             isinstance(a, JumpAction)
             and a.cell == move_action.destination
-            and a.piece[0] != move_action.piece[0]
+            and a.piece.color != move_action.piece.color
             for a in self.actions
         )

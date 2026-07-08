@@ -1,13 +1,14 @@
 from board.board import Board
 from board.board_validator import BoardValidator
-
+from piece.piece import Piece
+from piece.piece_type import PieceType
 
 
 def test_valid_board():
 
     board = Board([
-        ["wK",".","bK"],
-        [".","wP","."]
+        [Piece("w", PieceType.KING), Piece.EMPTY, Piece("b", PieceType.KING)],
+        [Piece.EMPTY, Piece("w", PieceType.PAWN), Piece.EMPTY]
     ])
 
     validator = BoardValidator()

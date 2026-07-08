@@ -1,16 +1,12 @@
 from moves.move_action import MoveAction
 from moves.jump_action import JumpAction
 from moves.action_manager import ActionManager
+from piece.piece import Piece
 from piece.piece_type import MovementStrategyFactory, PieceType
+import config
 
 
 class Game:
-
-    MOVE_DURATION_PER_CELL = 1000
-    JUMP_DURATION = 1000
-    _KING_TYPE_CHAR = PieceType.KING.value
-    _PAWN_TYPE_CHAR = PieceType.PAWN.value
-    _QUEEN_TYPE_CHAR = PieceType.QUEEN.value
 
 
     def __init__(self, board):
@@ -33,7 +29,7 @@ class Game:
         target = self.board.get_piece(row, col)
 
         if self.selected is None:
-            if target != ".":
+            if target != Piece.EMPTY:
                 self.selected = (row, col)
             return
 
@@ -41,7 +37,7 @@ class Game:
             self.selected = None
             return
 
-        if target != "." and self.same_color(
+        if target != Piece.EMPTY and self.same_color(
             self.board.get_piece(*self.selected), target
         ):
             self.selected = (row, col)
@@ -76,7 +72,7 @@ class Game:
 
         piece = self.board.get_piece(row, col)
 
-        if piece is None or piece == ".":
+        if piece is None or piece == Piece.EMPTY:
             return
 
         if self.action_manager.is_any_moving():
@@ -88,7 +84,7 @@ class Game:
         self.action_manager.add(JumpAction(
             piece,
             (row, col),
-            self.current_time + self.JUMP_DURATION
+            self.current_time + config.JUMP_DURATION
         ))
 
 
@@ -120,31 +116,32 @@ class Game:
 
     def _apply_promotion_if_needed(self, move: MoveAction):
         piece = self.board.get_piece(*move.destination)
-        if piece is None or piece[1] != self._PAWN_TYPE_CHAR:
+        if piece is None or piece == Piece.EMPTY or piece.piece_type != PieceType.PAWN:
             return
-        color = piece[0]
-        promotion_row = 0 if color == "w" else self.board.rows - 1
+        promotion_row = 0 if piece.color == "w" else self.board.rows - 1
         if move.destination[0] == promotion_row:
-            self.board.grid[move.destination[0]][move.destination[1]] = (
-                color + self._QUEEN_TYPE_CHAR
+            self.board.set_piece(
+                move.destination[0],
+                move.destination[1],
+                Piece(piece.color, PieceType.QUEEN)
             )
 
 
 
-    def _is_king(self, token: str) -> bool:
-        return len(token) == 2 and token[1] == self._KING_TYPE_CHAR
+    def _is_king(self, piece) -> bool:
+        return piece != Piece.EMPTY and piece.piece_type == PieceType.KING
 
 
 
     def _move_duration(self, start, end) -> int:
         sr, sc = start
         er, ec = end
-        return max(abs(er - sr), abs(ec - sc)) * self.MOVE_DURATION_PER_CELL
+        return max(abs(er - sr), abs(ec - sc)) * config.MOVE_DURATION_PER_CELL
 
 
 
     def _is_legal_move(self, piece, start, end) -> bool:
-        strategy = MovementStrategyFactory.for_token(piece)
+        strategy = MovementStrategyFactory.for_piece(piece)
         if strategy is None:
             return False
         return strategy.is_legal(piece, start, end, self.board)
@@ -156,6 +153,6 @@ class Game:
 
 
     def same_color(self, p1, p2) -> bool:
-        if p1 is None or p2 is None:
+        if p1 is None or p2 is None or p1 == Piece.EMPTY or p2 == Piece.EMPTY:
             return False
-        return p1[0] == p2[0]
+        return p1.is_same_color(p2)

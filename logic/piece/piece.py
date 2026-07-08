@@ -1,0 +1,47 @@
+from __future__ import annotations
+import config
+
+
+class Piece:
+
+    def __init__(
+        self,
+        color: str,
+        piece_type,
+        is_royal: bool = False,
+        promotion_type=None,
+        forward_direction: int = 0,
+    ):
+        self.color = color
+        self.piece_type = piece_type
+        self.is_royal = is_royal
+        self.promotion_type = promotion_type
+        self.forward_direction = forward_direction
+
+    def is_same_color(self, other: Piece) -> bool:
+        if self is Piece.EMPTY or other is Piece.EMPTY:
+            return False
+        return self.color == other.color
+
+    def display(self) -> str:
+        if self is Piece.EMPTY:
+            return config.EMPTY_CELL
+        return self.color + self.piece_type.value
+
+    def __repr__(self):
+        return self.display()
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.display() == other
+        if isinstance(other, Piece):
+            return self is other or (self.color == other.color and self.piece_type == other.piece_type)
+        return False
+
+    def __hash__(self):
+        if self is Piece.EMPTY:
+            return hash("__EMPTY__")
+        return hash((self.color, self.piece_type))
+
+
+Piece.EMPTY = Piece(color=".", piece_type=None)

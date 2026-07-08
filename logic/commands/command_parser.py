@@ -3,6 +3,7 @@ from commands.click_command import ClickCommand
 from commands.jump_command import JumpCommand
 from commands.wait_command import WaitCommand
 from commands.print_command import PrintBoardCommand
+import config
 
 class CommandParser:
 
@@ -30,7 +31,7 @@ class CommandParser:
             line = line.strip()
 
 
-            if line == "Commands:":
+            if line == config.COMMANDS_HEADER:
                 reading_commands = True
                 continue
 
