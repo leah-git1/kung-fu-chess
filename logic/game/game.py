@@ -1,5 +1,6 @@
 from moves.move import Move
 from moves.move_manager import MoveManager
+from piece.piece_type import MovementStrategyFactory
 
 
 class Game:
@@ -66,6 +67,9 @@ class Game:
             *self.selected
         )
 
+        if not self._is_legal_move(piece, self.selected, (row, col)):
+            return
+
         move = Move(
             piece,
             self.selected,
@@ -78,6 +82,13 @@ class Game:
 
         self.selected = None
 
+
+
+    def _is_legal_move(self, piece, start, end):
+        strategy = MovementStrategyFactory.for_token(piece)
+        if strategy is None:
+            return False
+        return strategy.is_legal(piece, start, end, self.board)
 
 
     def same_color(self, p1, p2):
