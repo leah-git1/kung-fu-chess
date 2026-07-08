@@ -188,3 +188,87 @@ def test_piece_can_move_again_after_arrival():
 
     assert game.board.get_piece(2,0)=="wK"
     assert game.board.get_piece(1,0)=="."
+
+
+
+# ---------------------------------------------------------------------------
+# Advanced real-time interaction cases
+# ---------------------------------------------------------------------------
+
+def test_enemy_at_destination_is_captured_on_arrival():
+    # Enemy collision: arriving piece captures enemy occupying the destination
+    board = Board([["wR",".","bP"],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)  # wR moves toward (0,2) where bP sits
+
+    game.advance_time(2 * PER_CELL)
+
+    assert game.board.get_piece(0,2)=="wR"
+    assert game.board.get_piece(0,0)=="."
+
+
+
+def test_friendly_at_destination_cancels_move_on_arrival():
+    # Friendly-piece landing: if a friendly now occupies the destination,
+    # the arriving piece must NOT overwrite it — move is cancelled.
+    board = Board([["wR",".","."],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)  # wR queued to (0,2)
+
+    # Simulate a friendly piece arriving at (0,2) before wR does
+    game.board.grid[0][2] = "wP"
+
+    game.advance_time(2 * PER_CELL)
+
+    # wP must survive; wR must be lost (cancelled, not applied)
+    assert game.board.get_piece(0,2)=="wP"
+
+
+
+def test_invalid_premove_shape_rejected_at_click_time():
+    # Invalid premove: a move whose shape is illegal is rejected immediately,
+    # not queued and silently dropped later.
+    board = Board([["wR",".","."],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(1,1)  # diagonal — illegal for rook
+
+    assert len(game.move_manager.moves) == 0
+
+
+
+def test_move_to_empty_destination_applies_normally():
+    # Baseline: move to an empty square applies and clears origin
+    board = Board([["wR",".","."],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)
+
+    game.advance_time(2 * PER_CELL)
+
+    assert game.board.get_piece(0,2)=="wR"
+    assert game.board.get_piece(0,0)=="."
+
+
+
+def test_origin_not_cleared_when_arrival_cancelled():
+    # When a move is cancelled at arrival (friendly at destination),
+    # the piece stays at its origin — the move simply did not happen.
+    board = Board([["wR",".","."],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)
+
+    game.board.grid[0][2] = "wP"  # friendly blocks destination
+
+    game.advance_time(2 * PER_CELL)
+
+    assert game.board.get_piece(0,0)=="wR"  # piece stays at origin
+    assert game.board.get_piece(0,2)=="wP"  # friendly untouched
