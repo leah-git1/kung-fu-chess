@@ -6,6 +6,7 @@ from piece.movement_strategy import (
     BishopMovement,
     QueenMovement,
     KnightMovement,
+    PawnMovement,
 )
 
 
@@ -24,6 +25,7 @@ _STRATEGY_MAP = {
     PieceType.ROOK:   RookMovement,
     PieceType.BISHOP: BishopMovement,
     PieceType.KNIGHT: KnightMovement,
+    PieceType.PAWN:   PawnMovement,
 }
 
 

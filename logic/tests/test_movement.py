@@ -19,6 +19,7 @@ from piece.movement_strategy import (
     BishopMovement,
     QueenMovement,
     KnightMovement,
+    PawnMovement,
 )
 from piece.piece_type import MovementStrategyFactory
 
@@ -253,6 +254,86 @@ class TestKnightMovement:
 
 
 # ---------------------------------------------------------------------------
+# Pawn
+# ---------------------------------------------------------------------------
+
+class TestPawnMovement:
+
+    def setup_method(self):
+        self.strategy = PawnMovement()
+
+    # --- White pawn (moves up = decreasing row) ---
+
+    def test_white_legal_forward_one(self):
+        board = board_with({(4, 3): "wP"})
+        assert self.strategy.is_legal("wP", (4, 3), (3, 3), board)
+
+    def test_white_illegal_forward_two(self):
+        board = board_with({(4, 3): "wP"})
+        assert not self.strategy.is_legal("wP", (4, 3), (2, 3), board)
+
+    def test_white_illegal_move_backward(self):
+        board = board_with({(4, 3): "wP"})
+        assert not self.strategy.is_legal("wP", (4, 3), (5, 3), board)
+
+    def test_white_illegal_forward_blocked(self):
+        board = board_with({(4, 3): "wP", (3, 3): "bP"})
+        assert not self.strategy.is_legal("wP", (4, 3), (3, 3), board)
+
+    def test_white_illegal_capture_forward(self):
+        # Enemy directly ahead — still illegal, pawns don't capture forward
+        board = board_with({(4, 3): "wP", (3, 3): "bR"})
+        assert not self.strategy.is_legal("wP", (4, 3), (3, 3), board)
+
+    def test_white_legal_diagonal_capture(self):
+        board = board_with({(4, 3): "wP", (3, 4): "bR"})
+        assert self.strategy.is_legal("wP", (4, 3), (3, 4), board)
+
+    def test_white_illegal_diagonal_empty(self):
+        # Diagonal move only legal when capturing — empty square is illegal
+        board = board_with({(4, 3): "wP"})
+        assert not self.strategy.is_legal("wP", (4, 3), (3, 4), board)
+
+    def test_white_illegal_diagonal_capture_friendly(self):
+        board = board_with({(4, 3): "wP", (3, 4): "wR"})
+        assert not self.strategy.is_legal("wP", (4, 3), (3, 4), board)
+
+    # --- Black pawn (moves down = increasing row) ---
+
+    def test_black_legal_forward_one(self):
+        board = board_with({(3, 3): "bP"})
+        assert self.strategy.is_legal("bP", (3, 3), (4, 3), board)
+
+    def test_black_illegal_forward_two(self):
+        board = board_with({(3, 3): "bP"})
+        assert not self.strategy.is_legal("bP", (3, 3), (5, 3), board)
+
+    def test_black_illegal_move_backward(self):
+        board = board_with({(3, 3): "bP"})
+        assert not self.strategy.is_legal("bP", (3, 3), (2, 3), board)
+
+    def test_black_illegal_forward_blocked(self):
+        board = board_with({(3, 3): "bP", (4, 3): "wP"})
+        assert not self.strategy.is_legal("bP", (3, 3), (4, 3), board)
+
+    def test_black_illegal_capture_forward(self):
+        board = board_with({(3, 3): "bP", (4, 3): "wR"})
+        assert not self.strategy.is_legal("bP", (3, 3), (4, 3), board)
+
+    def test_black_legal_diagonal_capture(self):
+        board = board_with({(3, 3): "bP", (4, 4): "wR"})
+        assert self.strategy.is_legal("bP", (3, 3), (4, 4), board)
+
+    def test_black_illegal_diagonal_empty(self):
+        board = board_with({(3, 3): "bP"})
+        assert not self.strategy.is_legal("bP", (3, 3), (4, 4), board)
+
+    def test_black_illegal_diagonal_capture_friendly(self):
+        board = board_with({(3, 3): "bP", (4, 4): "bR"})
+        assert not self.strategy.is_legal("bP", (3, 3), (4, 4), board)
+
+
+# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
@@ -276,6 +357,8 @@ class TestMovementStrategyFactory:
     def test_empty_square_returns_none(self):
         assert MovementStrategyFactory.for_token(".") is None
 
-    def test_pawn_returns_none(self):
-        # Pawn movement not yet implemented
-        assert MovementStrategyFactory.for_token("wP") is None
+    def test_pawn_token(self):
+        assert isinstance(MovementStrategyFactory.for_token("wP"), PawnMovement)
+
+    def test_black_pawn_token(self):
+        assert isinstance(MovementStrategyFactory.for_token("bP"), PawnMovement)

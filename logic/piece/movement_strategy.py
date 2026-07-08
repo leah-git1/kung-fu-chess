@@ -112,3 +112,27 @@ class KnightMovement(MovementStrategy):
             (er - sr, ec - sc) in self.OFFSETS
             and _destination_is_capturable(moving_piece, end, board)
         )
+
+
+class PawnMovement(MovementStrategy):
+    """Single class for both colors — direction is derived from the piece token."""
+
+    FORWARD_BY_COLOR = {"w": -1, "b": 1}
+
+    def is_legal(self, moving_piece, start, end, board) -> bool:
+        forward = self.FORWARD_BY_COLOR[_color(moving_piece)]
+        sr, sc = start
+        er, ec = end
+        dr, dc = er - sr, ec - sc
+
+        is_forward_step = dr == forward and dc == 0
+        is_diagonal_step = dr == forward and abs(dc) == 1
+
+        if is_forward_step:
+            return board.get_piece(*end) == "."
+
+        if is_diagonal_step:
+            target = board.get_piece(*end)
+            return target != "." and _color(target) != _color(moving_piece)
+
+        return False
