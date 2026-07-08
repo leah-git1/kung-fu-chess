@@ -272,3 +272,75 @@ def test_origin_not_cleared_when_arrival_cancelled():
 
     assert game.board.get_piece(0,0)=="wR"  # piece stays at origin
     assert game.board.get_piece(0,2)=="wP"  # friendly untouched
+
+
+
+# ---------------------------------------------------------------------------
+# Game-over
+# ---------------------------------------------------------------------------
+
+def test_game_not_over_initially():
+    game = create_game()
+    assert not game.game_over
+
+
+
+def test_capturing_enemy_king_ends_game():
+    # wR captures bK on arrival → game_over becomes True
+    board = Board([["wR",".","bK"],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)
+
+    game.advance_time(2 * PER_CELL)
+
+    assert game.game_over
+
+
+
+def test_capturing_non_king_does_not_end_game():
+    board = Board([["wR",".","bP"],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)
+
+    game.advance_time(2 * PER_CELL)
+
+    assert not game.game_over
+
+
+
+def test_moves_ignored_after_game_over():
+    # After game_over, handle_click must be a no-op
+    board = Board([["wR",".","bK"],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)
+    game.advance_time(2 * PER_CELL)  # bK captured, game over
+
+    assert game.game_over
+
+    game.handle_click(0,2)
+    game.handle_click(0,0)  # attempt to move wR back
+
+    assert len(game.move_manager.moves) == 0
+
+
+
+def test_advance_time_ignored_after_game_over():
+    # After game_over, advance_time must not change current_time
+    board = Board([["wR",".","bK"],[".",".","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(0,0)
+    game.handle_click(0,2)
+    game.advance_time(2 * PER_CELL)  # game over
+
+    time_at_game_over = game.current_time
+
+    game.advance_time(PER_CELL)
+
+    assert game.current_time == time_at_game_over
