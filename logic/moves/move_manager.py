@@ -8,6 +8,10 @@ class MoveManager:
         self.moves.append(move)
 
 
+    def is_piece_in_motion(self, position) -> bool:
+        return any(m.start == position for m in self.moves)
+
+
     def update(self, current_time, board):
 
         for move in self.moves:

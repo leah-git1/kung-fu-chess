@@ -70,6 +70,9 @@ class Game:
         if not self._is_legal_move(piece, self.selected, (row, col)):
             return
 
+        if self.move_manager.is_piece_in_motion(self.selected):
+            return
+
         move = Move(
             piece,
             self.selected,
