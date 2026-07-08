@@ -15,6 +15,7 @@ class MoveManager:
     def update(self, current_time, board):
 
         captured = []
+        applied_moves = []
 
         for move in self.moves:
             if move.is_finished(current_time):
@@ -24,10 +25,11 @@ class MoveManager:
                     if destination != ".":
                         captured.append(destination)
                     board.move(move.start, move.end)
+                    applied_moves.append(move)
 
         self.moves = [
             m for m in self.moves
             if not m.completed
         ]
 
-        return captured
+        return captured, applied_moves

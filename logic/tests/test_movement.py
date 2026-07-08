@@ -268,9 +268,22 @@ class TestPawnMovement:
         board = board_with({(4, 3): "wP"})
         assert self.strategy.is_legal("wP", (4, 3), (3, 3), board)
 
-    def test_white_illegal_forward_two(self):
+    def test_white_illegal_forward_two_not_from_start(self):
+        # Row 4 is not the start row on an 8-row board (start = row 7)
         board = board_with({(4, 3): "wP"})
         assert not self.strategy.is_legal("wP", (4, 3), (2, 3), board)
+
+    def test_white_legal_two_step_from_start_row(self):
+        board = board_with({(7, 3): "wP"}, rows=8)
+        assert self.strategy.is_legal("wP", (7, 3), (5, 3), board)
+
+    def test_white_illegal_two_step_blocked_at_intermediate(self):
+        board = board_with({(7, 3): "wP", (6, 3): "bP"}, rows=8)
+        assert not self.strategy.is_legal("wP", (7, 3), (5, 3), board)
+
+    def test_white_illegal_two_step_blocked_at_destination(self):
+        board = board_with({(7, 3): "wP", (5, 3): "bP"}, rows=8)
+        assert not self.strategy.is_legal("wP", (7, 3), (5, 3), board)
 
     def test_white_illegal_move_backward(self):
         board = board_with({(4, 3): "wP"})
@@ -304,9 +317,22 @@ class TestPawnMovement:
         board = board_with({(3, 3): "bP"})
         assert self.strategy.is_legal("bP", (3, 3), (4, 3), board)
 
-    def test_black_illegal_forward_two(self):
+    def test_black_illegal_forward_two_not_from_start(self):
+        # Row 3 is not the start row on an 8-row board (start = row 0)
         board = board_with({(3, 3): "bP"})
         assert not self.strategy.is_legal("bP", (3, 3), (5, 3), board)
+
+    def test_black_legal_two_step_from_start_row(self):
+        board = board_with({(0, 3): "bP"}, rows=8)
+        assert self.strategy.is_legal("bP", (0, 3), (2, 3), board)
+
+    def test_black_illegal_two_step_blocked_at_intermediate(self):
+        board = board_with({(0, 3): "bP", (1, 3): "wP"}, rows=8)
+        assert not self.strategy.is_legal("bP", (0, 3), (2, 3), board)
+
+    def test_black_illegal_two_step_blocked_at_destination(self):
+        board = board_with({(0, 3): "bP", (2, 3): "wP"}, rows=8)
+        assert not self.strategy.is_legal("bP", (0, 3), (2, 3), board)
 
     def test_black_illegal_move_backward(self):
         board = board_with({(3, 3): "bP"})

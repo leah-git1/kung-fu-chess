@@ -8,6 +8,9 @@ class Game:
 
     MOVE_DURATION_PER_CELL = 1000
     _KING_TYPE_CHAR = PieceType.KING.value
+    _PAWN_TYPE_CHAR = PieceType.PAWN.value
+    _QUEEN_TYPE_CHAR = PieceType.QUEEN.value
+    _PROMOTION_ROW_BY_COLOR = {"w": 0, "b": -1}  # -1 resolved at runtime
 
 
     def __init__(self, board):
@@ -98,13 +101,27 @@ class Game:
 
     def update_moves(self):
 
-        captured = self.move_manager.update(
+        captured, applied_moves = self.move_manager.update(
             self.current_time,
             self.board
         )
 
         if any(self._is_king(p) for p in captured):
             self.game_over = True
+
+        for move in applied_moves:
+            self._apply_promotion_if_needed(move)
+
+
+
+    def _apply_promotion_if_needed(self, move):
+        piece = self.board.get_piece(*move.end)
+        if piece is None or piece[1] != self._PAWN_TYPE_CHAR:
+            return
+        color = piece[0]
+        promotion_row = 0 if color == "w" else self.board.rows - 1
+        if move.end[0] == promotion_row:
+            self.board.grid[move.end[0]][move.end[1]] = color + self._QUEEN_TYPE_CHAR
 
 
 

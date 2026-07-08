@@ -344,3 +344,66 @@ def test_advance_time_ignored_after_game_over():
     game.advance_time(PER_CELL)
 
     assert game.current_time == time_at_game_over
+
+
+
+# ---------------------------------------------------------------------------
+# Promotion
+# ---------------------------------------------------------------------------
+
+def test_white_pawn_promotes_on_reaching_row_0():
+    # wP at row 1 moves one step to row 0 and becomes wQ
+    board = Board([[".",".","."],[".","wP","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(1,1)
+    game.handle_click(0,1)
+
+    game.advance_time(PER_CELL)
+
+    assert game.board.get_piece(0,1) == "wQ"
+
+
+
+def test_black_pawn_promotes_on_reaching_last_row():
+    # bP at second-to-last row moves one step to last row and becomes bQ
+    board = Board([[".",".","."],[".","bP","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(1,1)
+    game.handle_click(2,1)
+
+    game.advance_time(PER_CELL)
+
+    assert game.board.get_piece(2,1) == "bQ"
+
+
+
+def test_pawn_does_not_promote_mid_board():
+    # wP moves one step but does not reach row 0 — stays a pawn
+    board = Board([[".",".","."],[".",".","."],[".","wP","."],[".",".","."]])
+    game = Game(board)
+
+    game.handle_click(2,1)
+    game.handle_click(1,1)
+
+    game.advance_time(PER_CELL)
+
+    assert game.board.get_piece(1,1) == "wP"
+
+
+
+def test_white_pawn_two_step_from_start_row():
+    # On an 8-row board white start row is 7; two-step advance must be accepted
+    grid = [["."]*4 for _ in range(8)]
+    grid[7][1] = "wP"
+    board = Board(grid)
+    game = Game(board)
+
+    game.handle_click(7,1)
+    game.handle_click(5,1)
+
+    game.advance_time(2 * PER_CELL)
+
+    assert game.board.get_piece(5,1) == "wP"
+    assert game.board.get_piece(7,1) == "."

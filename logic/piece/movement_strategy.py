@@ -120,19 +120,33 @@ class PawnMovement(MovementStrategy):
     FORWARD_BY_COLOR = {"w": -1, "b": 1}
 
     def is_legal(self, moving_piece, start, end, board) -> bool:
-        forward = self.FORWARD_BY_COLOR[_color(moving_piece)]
+        color = _color(moving_piece)
+        forward = self.FORWARD_BY_COLOR[color]
         sr, sc = start
         er, ec = end
         dr, dc = er - sr, ec - sc
 
-        is_forward_step = dr == forward and dc == 0
+        is_forward_step  = dr == forward and dc == 0
+        is_two_step      = dr == 2 * forward and dc == 0
         is_diagonal_step = dr == forward and abs(dc) == 1
 
         if is_forward_step:
             return board.get_piece(*end) == "."
 
+        if is_two_step:
+            start_row = self._start_row(color, board.rows)
+            mid = (sr + forward, sc)
+            return (
+                sr == start_row
+                and board.get_piece(*mid) == "."
+                and board.get_piece(*end) == "."
+            )
+
         if is_diagonal_step:
             target = board.get_piece(*end)
-            return target != "." and _color(target) != _color(moving_piece)
+            return target != "." and _color(target) != color
 
         return False
+
+    def _start_row(self, color: str, board_rows: int) -> int:
+        return board_rows - 1 if color == "w" else 0
