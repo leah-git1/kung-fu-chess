@@ -35,9 +35,17 @@ ROYAL_PIECE_TYPES = {"K"}  # Only kings are royal
 PROMOTION_TARGETS = {"P": "Q"}  # Pawn promotes to Queen
 
 
-# ============================================================================
-# Movement Rules & Constraints
-# ============================================================================
+# Piece point values for scoring
+PIECE_VALUES = {
+    "K": 0,
+    "Q": 9,
+    "R": 5,
+    "B": 3,
+    "N": 3,
+    "P": 1,
+}
+
+
 # King movement constraint
 KING_MAX_DISTANCE = 1
 

@@ -67,16 +67,18 @@ class Game:
         if any(self._is_king(p) for p in captured):
             self.game_over = True
         for move in applied_moves:
-            self._apply_promotion(move)
+            self._apply_on_arrival(move)
 
-    def _apply_promotion(self, move) -> None:
+    def _apply_on_arrival(self, move) -> None:
         piece = self.board.get_piece(*move.destination)
-        if piece is Piece.EMPTY or piece.piece_type != PieceType.PAWN:
+        if piece is Piece.EMPTY:
             return
-        promotion_row = self.board.rows - 1 if config.FORWARD_DIRECTION[piece.color] > 0 else 0
-        if move.destination[0] == promotion_row:
-            self.board.set_piece(move.destination[0], move.destination[1],
-                                 Piece(piece.color, PieceType.QUEEN))
+        strategy = self._rules.strategy_for(piece)
+        if strategy is None:
+            return
+        result = strategy.on_arrival(piece, move.destination, self.board)
+        if result is not piece:
+            self.board.set_piece(move.destination[0], move.destination[1], result)
 
     def _is_king(self, piece) -> bool:
         return piece is not Piece.EMPTY and piece.piece_type == PieceType.KING

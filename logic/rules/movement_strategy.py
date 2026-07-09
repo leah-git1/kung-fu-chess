@@ -10,6 +10,9 @@ class MovementStrategy(ABC):
     def is_legal(self, moving_piece, start, end, board) -> bool:
         pass
 
+    def on_arrival(self, piece, destination, board):
+        return piece
+
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -139,6 +142,12 @@ class PawnMovement(MovementStrategy):
             return target is not Piece.EMPTY and not moving_piece.is_same_color(target)
 
         return False
+
+    def on_arrival(self, piece, destination, board):
+        promotion_row = board.rows - 1 if config.FORWARD_DIRECTION[piece.color] > 0 else 0
+        if destination[0] == promotion_row:
+            return Piece(piece.color, PieceType.QUEEN)
+        return piece
 
     def _start_row(self, color: str, board_rows: int) -> int:
         return board_rows - 1 if config.FORWARD_DIRECTION[color] < 0 else 0

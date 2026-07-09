@@ -8,3 +8,6 @@ class RuleEngine:
         if strategy is None:
             return False
         return strategy.is_legal(piece, start, end, board)
+
+    def strategy_for(self, piece):
+        return MovementStrategyFactory.for_piece(piece)
