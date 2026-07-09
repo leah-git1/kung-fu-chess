@@ -1,5 +1,4 @@
 from __future__ import annotations
-import config
 
 
 class Piece:
@@ -23,20 +22,15 @@ class Piece:
             return False
         return self.color == other.color
 
-    def display(self) -> str:
+    def __repr__(self):
         if self is Piece.EMPTY:
-            return config.EMPTY_CELL
+            return "."
         return self.color + self.piece_type.value
 
-    def __repr__(self):
-        return self.display()
-
     def __eq__(self, other):
-        if isinstance(other, str):
-            return self.display() == other
         if isinstance(other, Piece):
             return self is other or (self.color == other.color and self.piece_type == other.piece_type)
-        return False
+        return NotImplemented
 
     def __hash__(self):
         if self is Piece.EMPTY:

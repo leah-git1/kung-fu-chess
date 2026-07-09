@@ -1,8 +1,9 @@
 from moves.move_action import MoveAction
 from moves.jump_action import JumpAction
 from moves.action_manager import ActionManager
-from piece.piece import Piece
-from piece.piece_type import MovementStrategyFactory, PieceType
+from logic.board.piece import Piece
+from logic.board.movement_strategy import MovementStrategyFactory
+from logic.board.piece_type import PieceType
 import config
 
 

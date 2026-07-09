@@ -1,55 +1,29 @@
-import config
-from piece.piece import Piece
+from logic.board.piece import Piece
 
 class Board:
 
-
-    def __init__(self,grid):
-
+    def __init__(self, grid):
         self.grid = grid
+        self.rows = len(grid)
+        self.cols = len(grid[0])
 
-        self.rows=len(grid)
+    def is_inside(self, r, c):
+        return 0 <= r < self.rows and 0 <= c < self.cols
 
-        self.cols=len(grid[0])
-
-
-
-    def is_inside(self,r,c):
-
-        return (
-            0 <= r < self.rows and
-            0 <= c < self.cols
-        )
-
-
-
-    def get_piece(self,r,c):
-
-        if self.is_inside(r,c):
+    def get_piece(self, r, c):
+        if self.is_inside(r, c):
             return self.grid[r][c]
-
         return None
 
-
-
-    def move(self,start,end):
-
-        sr,sc=start
-        er,ec=end
-
-        self.grid[er][ec]=self.grid[sr][sc]
-
-        self.grid[sr][sc]=Piece.EMPTY
+    def move(self, start, end):
+        sr, sc = start
+        er, ec = end
+        self.grid[er][ec] = self.grid[sr][sc]
+        self.grid[sr][sc] = Piece.EMPTY
 
     def set_piece(self, row, col, piece):
-        """Set a piece at a specific location."""
         if self.is_inside(row, col):
             self.grid[row][col] = piece
 
-
-
-    def display(self):
-
-        for row in self.grid:
-            row_str = " ".join([cell if isinstance(cell, str) else cell.display() for cell in row])
-            print(row_str)
+    def is_empty(self, r, c):
+        return self.is_inside(r, c) and self.grid[r][c] is Piece.EMPTY

@@ -1,4 +1,5 @@
 from moves.action import Action
+from logic.board.piece import Piece
 
 
 class MoveAction(Action):
@@ -11,11 +12,10 @@ class MoveAction(Action):
     def resolve(self, board, captured: list, applied: list):
         destination_piece = board.get_piece(*self.destination)
 
-        if destination_piece != "." and destination_piece.is_same_color(self.piece):
-            # Friendly at destination — cancel silently, piece stays at origin
+        if destination_piece is not Piece.EMPTY and destination_piece.is_same_color(self.piece):
             return
 
-        if destination_piece != ".":
+        if destination_piece is not Piece.EMPTY:
             captured.append(destination_piece)
 
         board.move(self.origin, self.destination)

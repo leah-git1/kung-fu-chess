@@ -1,5 +1,6 @@
 from moves.move_action import MoveAction
 from moves.jump_action import JumpAction
+from logic.board.piece import Piece
 
 
 class ActionManager:
@@ -36,7 +37,7 @@ class ActionManager:
                 if self._intercepted_by_airborne_enemy(action):
                     # Airborne enemy captures the arriving piece
                     captured.append(action.piece)
-                    board.grid[action.origin[0]][action.origin[1]] = "."
+                    board.grid[action.origin[0]][action.origin[1]] = Piece.EMPTY
                 else:
                     action.resolve(board, captured, applied)
             else:

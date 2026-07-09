@@ -1,7 +1,7 @@
 from board.board import Board
 from board.board_validator import BoardValidator
-from piece.piece import Piece
-from piece.piece_type import PieceType
+from logic.board.piece import Piece
+from logic.board.piece_type import PieceType
 
 
 def test_valid_board():

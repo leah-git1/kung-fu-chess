@@ -13,15 +13,16 @@ Not in scope: check/checkmate, turn order, Kung-Fu timing.
 
 from board.board import Board
 from board.board_parser import BoardParser
-from piece.movement_strategy import (
+from logic.board.piece import Piece
+from logic.board.movement_strategy import (
     KingMovement,
     RookMovement,
     BishopMovement,
     QueenMovement,
     KnightMovement,
     PawnMovement,
+    MovementStrategyFactory,
 )
-from piece.piece_type import MovementStrategyFactory
 
 
 _parser = BoardParser()
@@ -32,11 +33,11 @@ def _P(token):
 
 
 def empty_board(rows=8, cols=8):
-    return Board([["." for _ in range(cols)] for _ in range(rows)])
+    return Board([[Piece.EMPTY for _ in range(cols)] for _ in range(rows)])
 
 
 def board_with(pieces: dict, rows=8, cols=8):
-    grid = [["." for _ in range(cols)] for _ in range(rows)]
+    grid = [[Piece.EMPTY for _ in range(cols)] for _ in range(rows)]
     for (r, c), token in pieces.items():
         grid[r][c] = _P(token)
     return Board(grid)

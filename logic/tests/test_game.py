@@ -2,8 +2,8 @@ from board.board import Board
 from game.game import Game
 from moves.move_action import MoveAction
 from moves.jump_action import JumpAction
-from piece.piece import Piece
-from piece.piece_type import PieceType
+from logic.board.piece import Piece
+from logic.board.piece_type import PieceType
 from board.board_parser import BoardParser
 import config
 
@@ -30,7 +30,7 @@ def G(rows):
 def cell(game, r, c):
     """Helper: get display string of a cell, or '.' for empty."""
     piece = game.board.get_piece(r, c)
-    return piece if piece == "." else piece.display()
+    return repr(piece)
 
 
 def create_game():
@@ -152,7 +152,7 @@ def test_second_color_blocked_while_first_in_motion():
     game.handle_click(2, 2)
     moves = _move_actions(game)
     assert len(moves) == 1
-    assert moves[0].piece.display() == "wR"
+    assert moves[0].piece == P("wR")
 
 
 def test_piece_can_move_again_after_arrival():

@@ -1,4 +1,6 @@
 from board.board_parser import BoardParser
+from logic.board.piece import Piece
+from logic.board.piece_type import PieceType
 
 
 def test_parse_board():
@@ -22,7 +24,7 @@ def test_parse_board():
 
 
     assert board.grid[0] == [
-        "wK",
-        ".",
-        "bK"
+        Piece("w", PieceType.KING),
+        Piece.EMPTY,
+        Piece("b", PieceType.KING)
     ]

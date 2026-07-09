@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import config
-from piece.piece import Piece
+from logic.board.piece import Piece
 
 
 class MovementStrategy(ABC):
@@ -34,7 +34,7 @@ def _path_is_clear(start, end, board) -> bool:
     dc = 0 if ec == sc else (1 if ec > sc else -1)
     r, c = sr + dr, sc + dc
     while (r, c) != (er, ec):
-        if board.get_piece(r, c) != Piece.EMPTY:
+        if board.get_piece(r, c) is not Piece.EMPTY:
             return False
         r += dr
         c += dc
@@ -44,7 +44,7 @@ def _path_is_clear(start, end, board) -> bool:
 def _destination_is_capturable(moving_piece, end, board) -> bool:
     """Returns True if the destination is empty or occupied by an enemy."""
     target = board.get_piece(*end)
-    return target == Piece.EMPTY or not moving_piece.is_same_color(target)
+    return target is Piece.EMPTY or not moving_piece.is_same_color(target)
 
 
 # ---------------------------------------------------------------------------
@@ -127,22 +127,58 @@ class PawnMovement(MovementStrategy):
         is_diagonal_step = dr == forward and abs(dc) == 1
 
         if is_forward_step:
-            return board.get_piece(*end) == "."
+            return board.get_piece(*end) is Piece.EMPTY
 
         if is_two_step:
             start_row = self._start_row(color, board.rows)
             mid = (sr + forward, sc)
             return (
                 sr == start_row
-                and board.get_piece(*mid) == "."
-                and board.get_piece(*end) == "."
+                and board.get_piece(*mid) is Piece.EMPTY
+                and board.get_piece(*end) is Piece.EMPTY
             )
 
         if is_diagonal_step:
             target = board.get_piece(*end)
-            return target != "." and not moving_piece.is_same_color(target)
+            return target is not Piece.EMPTY and not moving_piece.is_same_color(target)
 
         return False
 
     def _start_row(self, color: str, board_rows: int) -> int:
         return board_rows - 1 if color == "w" else 0
+
+
+# ---------------------------------------------------------------------------
+# Factory (lives here — rules engine layer, not model)
+# ---------------------------------------------------------------------------
+
+from logic.board.piece_type import PieceType
+
+_STRATEGY_MAP = {
+    PieceType.KING:   KingMovement,
+    PieceType.QUEEN:  QueenMovement,
+    PieceType.ROOK:   RookMovement,
+    PieceType.BISHOP: BishopMovement,
+    PieceType.KNIGHT: KnightMovement,
+    PieceType.PAWN:   PawnMovement,
+}
+
+
+class MovementStrategyFactory:
+
+    @staticmethod
+    def for_piece(piece):
+        if piece is None or piece.piece_type is None:
+            return None
+        strategy_cls = _STRATEGY_MAP.get(piece.piece_type)
+        return strategy_cls() if strategy_cls else None
+
+    @staticmethod
+    def for_token(token: str):
+        if token is Piece.EMPTY or not token or len(token) != 2:
+            return None
+        color, piece_type_char = token[0], token[1]
+        piece_type = next((pt for pt in PieceType if pt.value == piece_type_char), None)
+        if piece_type is None:
+            return None
+        return MovementStrategyFactory.for_piece(Piece(color=color, piece_type=piece_type))
