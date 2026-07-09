@@ -245,6 +245,22 @@ class TestPawnMovement:
         b = board_with({(3, 3): "bP"})
         assert not self.s.is_legal(_p("bP"), (3, 3), (4, 4), b)
 
+    def test_white_forward_capture_illegal(self):
+        b = board_with({(4, 3): "wP", (3, 3): "bP"})
+        assert not self.s.is_legal(_p("wP"), (4, 3), (3, 3), b)
+
+    def test_black_forward_one_blocked(self):
+        b = board_with({(3, 3): "bP", (4, 3): "wP"})
+        assert not self.s.is_legal(_p("bP"), (3, 3), (4, 3), b)
+
+    def test_black_forward_capture_illegal(self):
+        b = board_with({(3, 3): "bP", (4, 3): "wP"})
+        assert not self.s.is_legal(_p("bP"), (3, 3), (4, 3), b)
+
+    def test_black_two_step_not_from_start_illegal(self):
+        b = board_with({(3, 3): "bP"})
+        assert not self.s.is_legal(_p("bP"), (3, 3), (5, 3), b)
+
 
 # ---------------------------------------------------------------------------
 # Factory
