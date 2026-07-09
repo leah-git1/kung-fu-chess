@@ -1,58 +1,28 @@
 import sys
+import config
 
 from board.board_parser import BoardParser
 from board.board_validator import BoardValidator
-
 from commands.command_parser import CommandParser
-
+from controller.board_mapper import BoardMapper
+from controller.input_controller import InputController
 from game.game import Game
 
 
-
 def main():
-
     lines = sys.stdin.readlines()
 
-
-    # Parse board
-
-    board_parser = BoardParser()
-
-    board = board_parser.parse(lines)
-
-
-
-    # Validate board
-
-    validator = BoardValidator()
-
-    if not validator.validate(board):
+    board = BoardParser().parse(lines)
+    if not BoardValidator().validate(board):
         return
 
-
-
-    # Create game
-
     game = Game(board)
-
-
-
-    # Parse commands
-
-    command_parser = CommandParser()
-
-    commands = command_parser.parse(lines)
-
-
-
-    # Execute commands
+    controller = InputController(BoardMapper(config.CELL_SIZE))
+    commands = CommandParser().parse(lines)
 
     for command in commands:
-
-        command.execute(game)
-
+        command.execute(game, controller)
 
 
 if __name__ == "__main__":
-
     main()

@@ -36,5 +36,5 @@ class Command:
         )
     
     @abstractmethod
-    def execute(self, game):
+    def execute(self, game, controller=None):
         pass

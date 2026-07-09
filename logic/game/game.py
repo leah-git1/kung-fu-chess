@@ -1,157 +1,83 @@
-from moves.move_action import MoveAction
-from moves.jump_action import JumpAction
-from moves.action_manager import ActionManager
 from board.piece import Piece
 from board.piece_type import PieceType
 from rules.rule_engine import RuleEngine
+from rules.real_time_arbiter import RealTimeArbiter
 import config
 
 
 class Game:
 
-
     def __init__(self, board):
         self.board = board
-        self.selected = None
         self.current_time = 0
-        self.action_manager = ActionManager()
         self.game_over = False
+        self._arbiter = RealTimeArbiter()
         self._rules = RuleEngine()
 
+    # ------------------------------------------------------------------
+    # Public API — intent-based, no input interpretation
+    # ------------------------------------------------------------------
 
+    def request_move(self, piece, start, end) -> bool:
+        if self.game_over:
+            return False
+        if not self._rules.is_legal_move(piece, start, end, self.board):
+            return False
+        if self._arbiter.is_any_moving():
+            return False
+        duration = self._move_duration(start, end)
+        self._arbiter.add_move(piece, start, end, self.current_time + duration)
+        return True
 
-    def handle_click(self, row, col):
+    def request_jump(self, piece, cell) -> bool:
+        if self.game_over:
+            return False
+        if piece is Piece.EMPTY:
+            return False
+        if self._arbiter.is_any_moving():
+            return False
+        if self._arbiter.is_airborne(cell):
+            return False
+        self._arbiter.add_jump(piece, cell, self.current_time + config.JUMP_DURATION)
+        return True
 
+    def advance_time(self, milliseconds) -> None:
         if self.game_over:
             return
-
-        if not self.board.is_inside(row, col):
-            return
-
-        target = self.board.get_piece(row, col)
-
-        if self.selected is None:
-            if target != Piece.EMPTY:
-                self.selected = (row, col)
-            return
-
-        if self.selected == (row, col):
-            self.selected = None
-            return
-
-        if target != Piece.EMPTY and self.same_color(
-            self.board.get_piece(*self.selected), target
-        ):
-            self.selected = (row, col)
-            return
-
-        piece = self.board.get_piece(*self.selected)
-
-        if not self._is_legal_move(piece, self.selected, (row, col)):
-            return
-
-        if self.action_manager.is_any_moving():
-            return
-
-        duration = self._move_duration(self.selected, (row, col))
-        self.action_manager.add(MoveAction(
-            piece,
-            self.selected,
-            (row, col),
-            self.current_time + duration
-        ))
-        self.selected = None
-
-
-
-    def handle_jump(self, row, col):
-
-        if self.game_over:
-            return
-
-        if not self.board.is_inside(row, col):
-            return
-
-        piece = self.board.get_piece(row, col)
-
-        if piece is None or piece == Piece.EMPTY:
-            return
-
-        if self.action_manager.is_any_moving():
-            return
-
-        if self.action_manager.is_airborne((row, col)):
-            return
-
-        self.action_manager.add(JumpAction(
-            piece,
-            (row, col),
-            self.current_time + config.JUMP_DURATION
-        ))
-
-
-
-    def advance_time(self, milliseconds):
-
-        if self.game_over:
-            return
-
         self.current_time += milliseconds
         self._tick()
 
+    def snapshot(self) -> list:
+        return [row[:] for row in self.board.grid]
 
+    def get_piece_at(self, cell: tuple):
+        return self.board.get_piece(*cell)
 
-    def _tick(self):
+    def is_inside(self, cell: tuple) -> bool:
+        return self.board.is_inside(*cell)
 
-        captured, applied_moves = self.action_manager.update(
-            self.current_time,
-            self.board
-        )
+    # ------------------------------------------------------------------
+    # Internal coordination
+    # ------------------------------------------------------------------
 
+    def _tick(self) -> None:
+        captured, applied_moves = self._arbiter.advance(self.current_time, self.board)
         if any(self._is_king(p) for p in captured):
             self.game_over = True
-
         for move in applied_moves:
-            self._apply_promotion_if_needed(move)
+            self._apply_promotion(move)
 
-
-
-    def _apply_promotion_if_needed(self, move: MoveAction):
+    def _apply_promotion(self, move) -> None:
         piece = self.board.get_piece(*move.destination)
-        if piece is None or piece == Piece.EMPTY or piece.piece_type != PieceType.PAWN:
+        if piece is Piece.EMPTY or piece.piece_type != PieceType.PAWN:
             return
         promotion_row = 0 if piece.color == "w" else self.board.rows - 1
         if move.destination[0] == promotion_row:
-            self.board.set_piece(
-                move.destination[0],
-                move.destination[1],
-                Piece(piece.color, PieceType.QUEEN)
-            )
-
-
+            self.board.set_piece(move.destination[0], move.destination[1],
+                                 Piece(piece.color, PieceType.QUEEN))
 
     def _is_king(self, piece) -> bool:
-        return piece != Piece.EMPTY and piece.piece_type == PieceType.KING
-
-
+        return piece is not Piece.EMPTY and piece.piece_type == PieceType.KING
 
     def _move_duration(self, start, end) -> int:
-        sr, sc = start
-        er, ec = end
-        return max(abs(er - sr), abs(ec - sc)) * config.MOVE_DURATION_PER_CELL
-
-
-
-    def _is_legal_move(self, piece, start, end) -> bool:
-        return self._rules.is_legal_move(piece, start, end, self.board)
-
-
-
-    def update_moves(self):
-        self._tick()
-
-
-    def same_color(self, p1, p2) -> bool:
-        if p1 is None or p2 is None or p1 == Piece.EMPTY or p2 == Piece.EMPTY:
-            return False
-        return p1.is_same_color(p2)
+        return max(abs(end[0] - start[0]), abs(end[1] - start[1])) * config.MOVE_DURATION_PER_CELL

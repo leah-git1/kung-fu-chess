@@ -15,8 +15,5 @@ class WaitCommand(Command):
 
 
 
-    def execute(self, game):
-
-        game.advance_time(
-            self.milliseconds
-        )
+    def execute(self, game, controller=None) -> None:
+        game.advance_time(self.milliseconds)
