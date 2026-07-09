@@ -1,7 +1,7 @@
 from board.board import Board
 from board.piece import Piece
 from board.piece_type import PieceType
-from board.movement_strategy import (
+from rules.movement_strategy import (
     KingMovement, RookMovement, BishopMovement,
     QueenMovement, KnightMovement, PawnMovement,
     MovementStrategyFactory,
@@ -253,22 +253,22 @@ class TestPawnMovement:
 class TestMovementStrategyFactory:
 
     def test_king(self):
-        assert isinstance(MovementStrategyFactory.for_token("wK"), KingMovement)
+        assert isinstance(MovementStrategyFactory.for_piece(_p("wK")), KingMovement)
 
     def test_rook(self):
-        assert isinstance(MovementStrategyFactory.for_token("bR"), RookMovement)
+        assert isinstance(MovementStrategyFactory.for_piece(_p("bR")), RookMovement)
 
     def test_bishop(self):
-        assert isinstance(MovementStrategyFactory.for_token("wB"), BishopMovement)
+        assert isinstance(MovementStrategyFactory.for_piece(_p("wB")), BishopMovement)
 
     def test_queen(self):
-        assert isinstance(MovementStrategyFactory.for_token("wQ"), QueenMovement)
+        assert isinstance(MovementStrategyFactory.for_piece(_p("wQ")), QueenMovement)
 
     def test_knight(self):
-        assert isinstance(MovementStrategyFactory.for_token("bN"), KnightMovement)
+        assert isinstance(MovementStrategyFactory.for_piece(_p("bN")), KnightMovement)
 
     def test_pawn(self):
-        assert isinstance(MovementStrategyFactory.for_token("wP"), PawnMovement)
+        assert isinstance(MovementStrategyFactory.for_piece(_p("wP")), PawnMovement)
 
     def test_empty_returns_none(self):
-        assert MovementStrategyFactory.for_token(".") is None
+        assert MovementStrategyFactory.for_piece(Piece.EMPTY) is None

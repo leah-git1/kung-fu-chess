@@ -1,5 +1,5 @@
 from moves.action import Action
-from logic.board.piece import Piece
+from board.piece import Piece
 
 
 class MoveAction(Action):

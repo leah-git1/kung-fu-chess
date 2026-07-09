@@ -1,6 +1,6 @@
 from moves.move_action import MoveAction
 from moves.jump_action import JumpAction
-from logic.board.piece import Piece
+from board.piece import Piece
 
 
 class ActionManager:

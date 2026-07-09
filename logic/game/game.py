@@ -1,9 +1,9 @@
 from moves.move_action import MoveAction
 from moves.jump_action import JumpAction
 from moves.action_manager import ActionManager
-from logic.board.piece import Piece
-from logic.board.movement_strategy import MovementStrategyFactory
-from logic.board.piece_type import PieceType
+from board.piece import Piece
+from board.piece_type import PieceType
+from rules.rule_engine import RuleEngine
 import config
 
 
@@ -16,6 +16,7 @@ class Game:
         self.current_time = 0
         self.action_manager = ActionManager()
         self.game_over = False
+        self._rules = RuleEngine()
 
 
 
@@ -142,10 +143,7 @@ class Game:
 
 
     def _is_legal_move(self, piece, start, end) -> bool:
-        strategy = MovementStrategyFactory.for_piece(piece)
-        if strategy is None:
-            return False
-        return strategy.is_legal(piece, start, end, self.board)
+        return self._rules.is_legal_move(piece, start, end, self.board)
 
 
 

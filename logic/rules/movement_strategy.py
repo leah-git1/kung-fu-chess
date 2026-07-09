@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import config
 from board.piece import Piece
+from board.piece_type import PieceType
 
 
 class MovementStrategy(ABC):
@@ -11,7 +12,7 @@ class MovementStrategy(ABC):
 
 
 # ---------------------------------------------------------------------------
-# Shared helpers (DRY: used by all strategies)
+# Shared helpers
 # ---------------------------------------------------------------------------
 
 def _is_straight(start, end) -> bool:
@@ -27,7 +28,6 @@ def _is_diagonal(start, end) -> bool:
 
 
 def _path_is_clear(start, end, board) -> bool:
-    """Returns True if every square strictly between start and end is empty."""
     sr, sc = start
     er, ec = end
     dr = 0 if er == sr else (1 if er > sr else -1)
@@ -42,7 +42,6 @@ def _path_is_clear(start, end, board) -> bool:
 
 
 def _destination_is_capturable(moving_piece, end, board) -> bool:
-    """Returns True if the destination is empty or occupied by an enemy."""
     target = board.get_piece(*end)
     return target is Piece.EMPTY or not moving_piece.is_same_color(target)
 
@@ -83,7 +82,6 @@ class BishopMovement(MovementStrategy):
 
 
 class QueenMovement(MovementStrategy):
-    """Queen = Rook logic OR Bishop logic (composition, not duplication)."""
 
     def __init__(self):
         self._rook = RookMovement()
@@ -111,7 +109,6 @@ class KnightMovement(MovementStrategy):
 
 
 class PawnMovement(MovementStrategy):
-    """Single class for both colors — direction is derived from the piece's color."""
 
     FORWARD_BY_COLOR = {"w": -1, "b": 1}
 
@@ -149,10 +146,8 @@ class PawnMovement(MovementStrategy):
 
 
 # ---------------------------------------------------------------------------
-# Factory (lives here — rules engine layer, not model)
+# Factory
 # ---------------------------------------------------------------------------
-
-from board.piece_type import PieceType
 
 _STRATEGY_MAP = {
     PieceType.KING:   KingMovement,
@@ -172,13 +167,3 @@ class MovementStrategyFactory:
             return None
         strategy_cls = _STRATEGY_MAP.get(piece.piece_type)
         return strategy_cls() if strategy_cls else None
-
-    @staticmethod
-    def for_token(token: str):
-        if token is Piece.EMPTY or not token or len(token) != 2:
-            return None
-        color, piece_type_char = token[0], token[1]
-        piece_type = next((pt for pt in PieceType if pt.value == piece_type_char), None)
-        if piece_type is None:
-            return None
-        return MovementStrategyFactory.for_piece(Piece(color=color, piece_type=piece_type))
