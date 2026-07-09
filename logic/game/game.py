@@ -38,6 +38,8 @@ class Game:
             return False
         if self._arbiter.is_airborne(cell):
             return False
+        if self.board.get_piece(*cell) != piece:
+            return False
         self._arbiter.add_jump(piece, cell, self.current_time + config.JUMP_DURATION)
         return True
 

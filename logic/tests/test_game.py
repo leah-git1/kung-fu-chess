@@ -44,6 +44,13 @@ def test_move_rejected_when_already_moving():
     assert game.request_move(_p("wK"), (1, 0), (2, 0)) is False
 
 
+def test_piece_can_move_again_after_arrival():
+    game = Game(_board({(0, 0): "wR"}))
+    game.request_move(_p("wR"), (0, 0), (0, 2))
+    game.advance_time(2 * PER_CELL)
+    assert game.request_move(_p("wR"), (0, 2), (0, 4)) is True
+
+
 def test_move_rejected_when_game_over():
     game = Game(_board({(0, 0): "wR"}))
     game.game_over = True
@@ -175,6 +182,13 @@ def test_jump_rejected_when_move_in_progress():
     game = Game(_board({(0, 0): "wR", (1, 0): "wK"}))
     game.request_move(_p("wR"), (0, 0), (0, 7))
     assert game.request_jump(_p("wK"), (1, 0)) is False
+
+
+def test_jump_rejected_after_piece_captured():
+    game = Game(_board({(0, 0): "wR", (0, 2): "bR"}))
+    game.request_move(_p("wR"), (0, 0), (0, 2))
+    game.advance_time(2 * PER_CELL)
+    assert game.request_jump(_p("bR"), (0, 2)) is False
 
 
 # ------------------------------------------------------------------

@@ -237,6 +237,10 @@ class TestPawnMovement:
         b = board_with({(0, 3): "bP"}, rows=8)
         assert self.s.is_legal(_p("bP"), (0, 3), (2, 3), b)
 
+    def test_black_two_step_blocked_at_intermediate(self):
+        b = board_with({(0, 3): "bP", (1, 3): "wP"}, rows=8)
+        assert not self.s.is_legal(_p("bP"), (0, 3), (2, 3), b)
+
     def test_black_diagonal_capture(self):
         b = board_with({(3, 3): "bP", (4, 4): "wR"})
         assert self.s.is_legal(_p("bP"), (3, 3), (4, 4), b)

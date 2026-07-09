@@ -142,3 +142,52 @@ def test_jump_clears_after_finish():
     arbiter.add_jump(_p("wR"), (0, 0), finish_time=1000)
     arbiter.advance(1000, board)
     assert not arbiter.is_airborne((0, 0))
+
+
+def test_jump_still_active_before_finish():
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR"})
+    arbiter.add_jump(_p("wR"), (0, 0), finish_time=1000)
+    arbiter.advance(999, board)
+    assert arbiter.is_airborne((0, 0))
+
+
+def test_piece_stays_on_cell_during_jump():
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR"})
+    arbiter.add_jump(_p("wR"), (0, 0), finish_time=1000)
+    arbiter.advance(1000, board)
+    assert board.get_piece(0, 0) == _p("wR")
+
+
+def test_airborne_piece_stays_on_cell_after_interception():
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "bR", (0, 2): "wR"})
+    arbiter.add_jump(_p("bR"), (0, 0), finish_time=2000)
+    arbiter.add_move(_p("wR"), (0, 2), (0, 0), finish_time=1000)
+    arbiter.advance(1000, board)
+    assert board.get_piece(0, 0) == _p("bR")
+
+
+# ------------------------------------------------------------------
+# advance — two pieces arriving at the same destination
+# ------------------------------------------------------------------
+
+def test_two_friendly_pieces_arrive_same_cell_second_cancelled():
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR", (0, 7): "wB"})
+    arbiter.add_move(_p("wR"), (0, 0), (0, 4), finish_time=1000)
+    arbiter.add_move(_p("wB"), (0, 7), (0, 4), finish_time=1000)
+    captured, applied = arbiter.advance(1000, board)
+    assert len(captured) == 0
+    assert len(applied) == 1
+
+
+def test_two_enemy_pieces_arrive_same_cell_second_captures_first():
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR", (0, 7): "bR"})
+    arbiter.add_move(_p("wR"), (0, 0), (0, 4), finish_time=1000)
+    arbiter.add_move(_p("bR"), (0, 7), (0, 4), finish_time=1000)
+    captured, applied = arbiter.advance(1000, board)
+    assert len(captured) == 1
+    assert len(applied) == 2
