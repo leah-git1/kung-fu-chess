@@ -1,6 +1,6 @@
 from board.board import Board
-from logic.board.piece import Piece
-from logic.board.piece_type import PieceType
+from board.piece import Piece
+from board.piece_type import PieceType
 import config
 
 class BoardParser:

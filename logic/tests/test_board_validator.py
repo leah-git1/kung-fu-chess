@@ -1,41 +1,42 @@
 from board.board import Board
 from board.board_validator import BoardValidator
-from logic.board.piece import Piece
-from logic.board.piece_type import PieceType
+from board.piece import Piece
+from board.piece_type import PieceType
 
 
-def test_valid_board():
+_v = BoardValidator()
 
+
+def _piece(color, pt):
+    return Piece(color, pt)
+
+
+def test_valid_board_passes():
     board = Board([
-        [Piece("w", PieceType.KING), Piece.EMPTY, Piece("b", PieceType.KING)],
-        [Piece.EMPTY, Piece("w", PieceType.PAWN), Piece.EMPTY]
+        [_piece("w", PieceType.KING), Piece.EMPTY, _piece("b", PieceType.KING)],
+        [Piece.EMPTY, _piece("w", PieceType.PAWN), Piece.EMPTY],
     ])
-
-    validator = BoardValidator()
-
-    assert validator.validate(board)
+    assert _v.validate(board)
 
 
-
-def test_row_width_mismatch():
-
+def test_row_width_mismatch_fails():
     board = Board([
-        ["wK",".","bK"],
-        [".","wP"]
+        [_piece("w", PieceType.KING), Piece.EMPTY],
+        [Piece.EMPTY],
     ])
-
-    validator = BoardValidator()
-
-    assert not validator.validate(board)
+    assert not _v.validate(board)
 
 
+def test_raw_string_in_cell_fails():
+    board = Board([["wK", Piece.EMPTY]])
+    assert not _v.validate(board)
 
-def test_unknown_token():
 
-    board = Board([
-        ["wK","XXX","bK"]
-    ])
+def test_empty_board_passes():
+    board = Board([[Piece.EMPTY] * 3 for _ in range(3)])
+    assert _v.validate(board)
 
-    validator = BoardValidator()
 
-    assert not validator.validate(board)
+def test_single_cell_board_passes():
+    board = Board([[_piece("w", PieceType.KING)]])
+    assert _v.validate(board)

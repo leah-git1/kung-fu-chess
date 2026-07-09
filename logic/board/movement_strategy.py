@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import config
-from logic.board.piece import Piece
+from board.piece import Piece
 
 
 class MovementStrategy(ABC):
@@ -152,7 +152,7 @@ class PawnMovement(MovementStrategy):
 # Factory (lives here — rules engine layer, not model)
 # ---------------------------------------------------------------------------
 
-from logic.board.piece_type import PieceType
+from board.piece_type import PieceType
 
 _STRATEGY_MAP = {
     PieceType.KING:   KingMovement,
