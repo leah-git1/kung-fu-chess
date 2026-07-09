@@ -50,4 +50,4 @@ class BoardParser:
             piece_type = PieceType(token[1])
             return Piece(color, piece_type)
         except (ValueError, IndexError):
-            raise ParseError(f"Invalid cell token: '{token}'")
+            raise ParseError(f"ERROR UNKNOWN_TOKEN")

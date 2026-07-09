@@ -13,7 +13,7 @@ class BoardValidator:
             return
         expected_width = len(board.grid[0])
         if not all(len(row) == expected_width for row in board.grid):
-            raise BoardError("Inconsistent row widths")
+            raise BoardError("ERROR ROW_WIDTH_MISMATCH")
 
     def _validate_tokens(self, board):
         if not all(isinstance(cell, Piece) for row in board.grid for cell in row):
