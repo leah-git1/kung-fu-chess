@@ -9,12 +9,13 @@ class BoardValidator:
         self._validate_tokens(board)
 
     def _validate_row_width(self, board):
-        if not board.grid:
+        rows = list(board.rows_iter())
+        if not rows:
             return
-        expected_width = len(board.grid[0])
-        if not all(len(row) == expected_width for row in board.grid):
+        expected_width = len(rows[0])
+        if not all(len(row) == expected_width for row in rows):
             raise BoardError("ERROR ROW_WIDTH_MISMATCH")
 
     def _validate_tokens(self, board):
-        if not all(isinstance(cell, Piece) for row in board.grid for cell in row):
+        if not all(isinstance(cell, Piece) for row in board.rows_iter() for cell in row):
             raise BoardError("Invalid token in board")

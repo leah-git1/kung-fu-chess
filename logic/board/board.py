@@ -10,6 +10,9 @@ class Board:
     def is_inside(self, r, c):
         return 0 <= r < self.rows and 0 <= c < self.cols
 
+    def rows_iter(self):
+        return (row[:] for row in self.grid)
+
     def get_piece(self, r, c):
         if self.is_inside(r, c):
             return self.grid[r][c]
