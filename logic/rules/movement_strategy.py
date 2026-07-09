@@ -110,11 +110,10 @@ class KnightMovement(MovementStrategy):
 
 class PawnMovement(MovementStrategy):
 
-    FORWARD_BY_COLOR = {"w": -1, "b": 1}
 
     def is_legal(self, moving_piece, start, end, board) -> bool:
         color = moving_piece.color
-        forward = self.FORWARD_BY_COLOR[color]
+        forward = config.FORWARD_DIRECTION[color]
         sr, sc = start
         er, ec = end
         dr, dc = er - sr, ec - sc
@@ -142,7 +141,7 @@ class PawnMovement(MovementStrategy):
         return False
 
     def _start_row(self, color: str, board_rows: int) -> int:
-        return board_rows - 1 if color == "w" else 0
+        return board_rows - 1 if config.FORWARD_DIRECTION[color] < 0 else 0
 
 
 # ---------------------------------------------------------------------------

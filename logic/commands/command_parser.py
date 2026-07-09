@@ -3,6 +3,7 @@ from commands.click_command import ClickCommand
 from commands.jump_command import JumpCommand
 from commands.wait_command import WaitCommand
 from commands.print_command import PrintBoardCommand
+from errors.command_error import CommandError
 import config
 
 class CommandParser:
@@ -59,7 +60,7 @@ class CommandParser:
         command_name = parts[0].lower()
 
         if command_name not in self.COMMAND_MAP:
-            return None
+            raise CommandError(f"Unknown command: '{command_name}'")
 
         command_type = self.COMMAND_MAP[command_name]
 

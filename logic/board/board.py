@@ -5,7 +5,7 @@ class Board:
     def __init__(self, grid):
         self.grid = grid
         self.rows = len(grid)
-        self.cols = len(grid[0])
+        self.cols = len(grid[0]) if grid else 0
 
     def is_inside(self, r, c):
         return 0 <= r < self.rows and 0 <= c < self.cols

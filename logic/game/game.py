@@ -71,7 +71,7 @@ class Game:
         piece = self.board.get_piece(*move.destination)
         if piece is Piece.EMPTY or piece.piece_type != PieceType.PAWN:
             return
-        promotion_row = 0 if piece.color == "w" else self.board.rows - 1
+        promotion_row = self.board.rows - 1 if config.FORWARD_DIRECTION[piece.color] > 0 else 0
         if move.destination[0] == promotion_row:
             self.board.set_piece(move.destination[0], move.destination[1],
                                  Piece(piece.color, PieceType.QUEEN))

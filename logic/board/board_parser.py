@@ -1,6 +1,7 @@
 from board.board import Board
 from board.piece import Piece
 from board.piece_type import PieceType
+from errors.parse_error import ParseError
 import config
 
 class BoardParser:
@@ -44,6 +45,9 @@ class BoardParser:
     def _parse_cell(self, token: str):
         if token == config.EMPTY_CELL:
             return Piece.EMPTY
-        color = token[0]
-        piece_type = PieceType(token[1])
-        return Piece(color, piece_type)
+        try:
+            color = token[0]
+            piece_type = PieceType(token[1])
+            return Piece(color, piece_type)
+        except (ValueError, IndexError):
+            raise ParseError(f"Invalid cell token: '{token}'")
