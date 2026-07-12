@@ -31,7 +31,7 @@ class Game:
             return False
         if not self._rules.is_legal_move(piece, start, end, self._board):
             return False
-        if self._arbiter.is_any_moving():
+        if not self._arbiter.is_piece_available(piece):
             return False
         duration = self._move_duration(start, end)
         self._arbiter.add_move(piece, start, end, self.current_time + duration)

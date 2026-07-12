@@ -38,17 +38,36 @@ def test_illegal_move_returns_false():
     assert game.request_move(_p("wR"), (0, 0), (3, 5)) is False
 
 
-def test_move_rejected_when_already_moving():
-    game = Game(_board({(0, 0): "wR", (1, 0): "wK"}))
-    game.request_move(_p("wR"), (0, 0), (0, 7))
-    assert game.request_move(_p("wK"), (1, 0), (2, 0)) is False
-
-
-def test_piece_can_move_again_after_arrival():
+def test_move_rejected_when_piece_already_moving():
     game = Game(_board({(0, 0): "wR"}))
-    game.request_move(_p("wR"), (0, 0), (0, 2))
+    rook = game.get_piece_at((0, 0))
+    game.request_move(rook, (0, 0), (0, 7))
+    assert game.request_move(rook, (0, 0), (0, 3)) is False
+
+
+def test_different_piece_can_move_while_another_is_moving():
+    game = Game(_board({(0, 0): "wR", (1, 0): "wK"}))
+    rook = game.get_piece_at((0, 0))
+    king = game.get_piece_at((1, 0))
+    game.request_move(rook, (0, 0), (0, 7))
+    assert game.request_move(king, (1, 0), (2, 0)) is True
+
+
+def test_piece_can_move_again_after_arrival_and_cooldown():
+    game = Game(_board({(0, 0): "wR"}))
+    rook = game.get_piece_at((0, 0))
+    game.request_move(rook, (0, 0), (0, 2))
     game.advance_time(2 * PER_CELL)
-    assert game.request_move(_p("wR"), (0, 2), (0, 4)) is True
+    game.advance_time(config.COOLDOWN_DURATION)
+    assert game.request_move(rook, (0, 2), (0, 4)) is True
+
+
+def test_piece_cannot_move_during_cooldown():
+    game = Game(_board({(0, 0): "wR"}))
+    rook = game.get_piece_at((0, 0))
+    game.request_move(rook, (0, 0), (0, 2))
+    game.advance_time(2 * PER_CELL)
+    assert game.request_move(rook, (0, 2), (0, 4)) is False
 
 
 def test_move_rejected_when_game_over():
@@ -180,8 +199,9 @@ def test_jump_rejected_when_already_airborne():
 
 def test_jump_rejected_when_move_in_progress():
     game = Game(_board({(0, 0): "wR", (1, 0): "wK"}))
-    game.request_move(_p("wR"), (0, 0), (0, 7))
-    assert game.request_jump(_p("wK"), (1, 0)) is False
+    rook = game.get_piece_at((0, 0))
+    game.request_move(rook, (0, 0), (0, 7))
+    assert game.request_jump(rook, (0, 0)) is False
 
 
 def test_jump_rejected_after_piece_captured():

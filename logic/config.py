@@ -10,6 +10,7 @@ EMPTY_CELL = "."
 CELL_SIZE = 100
 MOVE_DURATION_PER_CELL = 1000
 JUMP_DURATION = 1000
+COOLDOWN_DURATION = 1000
 
 
 # ============================================================================

@@ -24,3 +24,8 @@ class JumpMotion(Motion):
     def __init__(self, piece, cell, finish_time: int):
         super().__init__(piece, finish_time)
         self.cell = cell
+
+
+class CooldownMotion(Motion):
+    """Represents a piece in cooldown after arriving — cannot move until resolved."""
+    pass

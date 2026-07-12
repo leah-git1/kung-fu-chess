@@ -1,5 +1,14 @@
 from __future__ import annotations
+from enum import Enum
 import config
+
+
+class PieceState(Enum):
+    IDLE = "idle"
+    MOVING = "moving"
+    COOLDOWN = "cooldown"
+    CAPTURED = "captured"
+
 
 class Piece:
     """Represents a single chess piece with a color and type. The singleton EMPTY represents an empty cell."""
@@ -17,6 +26,7 @@ class Piece:
         self.is_royal = is_royal
         self.promotion_type = promotion_type
         self.forward_direction = forward_direction
+        self.state = PieceState.IDLE
 
     def is_same_color(self, other: Piece) -> bool:
         if self is Piece.EMPTY or other is Piece.EMPTY:
