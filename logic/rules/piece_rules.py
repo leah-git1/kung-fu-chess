@@ -159,7 +159,7 @@ class PawnMovement(MovementStrategy):
         return Piece(piece.color, PieceType(target_type_value))
 
     def _start_row(self, color: str, board_rows: int) -> int:
-        return board_rows - 1 if config.FORWARD_DIRECTION[color] < 0 else 0
+        return board_rows - 2 if config.FORWARD_DIRECTION[color] < 0 else 1
 
 
 # ---------------------------------------------------------------------------
