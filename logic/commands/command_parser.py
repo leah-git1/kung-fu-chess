@@ -15,6 +15,9 @@ class CommandParser:
         "print":  PrintBoardCommand,
     }
 
+    def __init__(self, output=print):
+        self._output = output
+
     def parse(self, lines):
         commands = []
         reading_commands = False
@@ -35,4 +38,6 @@ class CommandParser:
         command_cls = self.COMMAND_MAP.get(parts[0].lower())
         if command_cls is None:
             raise CommandError(f"Unknown command: '{parts[0]}'")
+        if command_cls is PrintBoardCommand:
+            return PrintBoardCommand(self._output)
         return command_cls.from_parameters(parts[1:])

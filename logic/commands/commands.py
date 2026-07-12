@@ -1,11 +1,11 @@
 from enum import Enum
 from abc import ABC, abstractmethod
 
-# class CommandType(Enum):
-#     JUMP = "jump"
-#     WAIT = "wait"
-#     CLICK = "click"
-#     PRINT_BOARD = "print_board"
+class CommandType(Enum):
+    JUMP = "jump"
+    WAIT = "wait"
+    CLICK = "click"
+    PRINT_BOARD = "print_board"
 
 
 class Command(ABC):
