@@ -1,5 +1,5 @@
 from board.piece import Piece
-from rules.motion import MoveMotion, JumpMotion
+from realtime.motion import MoveMotion, JumpMotion
 
 
 class RealTimeArbiter:

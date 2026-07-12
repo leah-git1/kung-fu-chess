@@ -1,6 +1,6 @@
 from board.piece import Piece
 from rules.rule_engine import RuleEngine
-from rules.real_time_arbiter import RealTimeArbiter
+from realtime.real_time_arbiter import RealTimeArbiter
 import config
 
 

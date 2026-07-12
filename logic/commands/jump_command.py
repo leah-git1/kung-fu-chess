@@ -1,10 +1,9 @@
-from commands.commands import Command, CommandType
+from commands.commands import Command
 
 
 class JumpCommand(Command):
 
     def __init__(self, x: int, y: int):
-        super().__init__(CommandType.JUMP, [x, y])
         self.x = x
         self.y = y
 

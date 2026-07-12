@@ -1,7 +1,7 @@
 from board.board import Board
 from board.piece import Piece
 from board.piece_type import PieceType
-from rules.real_time_arbiter import RealTimeArbiter
+from realtime.real_time_arbiter import RealTimeArbiter
 
 
 def _p(token):

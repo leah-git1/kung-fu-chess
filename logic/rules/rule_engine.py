@@ -1,4 +1,4 @@
-from rules.movement_strategy import MovementStrategyFactory
+from rules.piece_rules import MovementStrategyFactory
 
 
 class RuleEngine:

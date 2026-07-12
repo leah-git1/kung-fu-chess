@@ -1,7 +1,7 @@
 from board.board import Board
 from board.piece import Piece
 from board.piece_type import PieceType
-from rules.movement_strategy import (
+from rules.piece_rules import (
     KingMovement, RookMovement, BishopMovement,
     QueenMovement, KnightMovement, PawnMovement,
     MovementStrategyFactory,

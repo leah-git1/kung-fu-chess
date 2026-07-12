@@ -1,12 +1,10 @@
-from commands.commands import Command, CommandType
+from commands.commands import Command
 from board.board_printer import BoardPrinter
 
 
 class PrintBoardCommand(Command):
-    """Prints the current board state using the provided output function."""
 
     def __init__(self, output=print):
-        super().__init__(CommandType.PRINT_BOARD)
         self._printer = BoardPrinter()
         self._output = output
 

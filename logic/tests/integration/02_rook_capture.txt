@@ -1,0 +1,13 @@
+Board:
+wR . . . . . . bP
+. . . . . . . .
+
+Commands:
+click 0 0
+click 700 0
+wait 7000
+print
+
+Expected:
+. . . . . . . wR
+. . . . . . . .
