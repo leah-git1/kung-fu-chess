@@ -5,6 +5,7 @@ from board.piece_type import PieceType
 
 
 class MovementStrategy(ABC):
+    """Abstract base for piece movement rules. Subclasses define legality and post-arrival behavior."""
 
     @abstractmethod
     def is_legal(self, moving_piece, start, end, board) -> bool:
@@ -54,6 +55,7 @@ def _destination_is_capturable(moving_piece, end, board) -> bool:
 # ---------------------------------------------------------------------------
 
 class KingMovement(MovementStrategy):
+    """King moves exactly one step in any direction."""
 
     def is_legal(self, moving_piece, start, end, board) -> bool:
         sr, sc = start
@@ -65,6 +67,7 @@ class KingMovement(MovementStrategy):
 
 
 class RookMovement(MovementStrategy):
+    """Rook moves any number of cells in a straight line with a clear path."""
 
     def is_legal(self, moving_piece, start, end, board) -> bool:
         return (
@@ -75,6 +78,7 @@ class RookMovement(MovementStrategy):
 
 
 class BishopMovement(MovementStrategy):
+    """Bishop moves any number of cells diagonally with a clear path."""
 
     def is_legal(self, moving_piece, start, end, board) -> bool:
         return (
@@ -85,6 +89,7 @@ class BishopMovement(MovementStrategy):
 
 
 class QueenMovement(MovementStrategy):
+    """Queen combines rook and bishop movement."""
 
     def __init__(self):
         self._rook = RookMovement()
@@ -98,6 +103,7 @@ class QueenMovement(MovementStrategy):
 
 
 class KnightMovement(MovementStrategy):
+    """Knight moves in an L-shape and can jump over other pieces."""
 
     OFFSETS = frozenset({(2, 1), (2, -1), (-2, 1), (-2, -1),
                          (1, 2), (1, -2), (-1, 2), (-1, -2)})
@@ -112,7 +118,7 @@ class KnightMovement(MovementStrategy):
 
 
 class PawnMovement(MovementStrategy):
-
+    """Pawn moves forward one step, two steps from start row, and captures diagonally. Promotes on arrival at the last row."""
 
     def is_legal(self, moving_piece, start, end, board) -> bool:
         color = moving_piece.color
@@ -171,6 +177,7 @@ _STRATEGY_MAP = {
 
 
 class MovementStrategyFactory:
+    """Returns the correct MovementStrategy instance for a given piece."""
 
     @staticmethod
     def for_piece(piece):

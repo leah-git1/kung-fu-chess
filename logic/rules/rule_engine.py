@@ -2,6 +2,7 @@ from rules.movement_strategy import MovementStrategyFactory
 
 
 class RuleEngine:
+    """Validates move legality by delegating to the appropriate MovementStrategy."""
 
     def is_legal_move(self, piece, start, end, board) -> bool:
         strategy = MovementStrategyFactory.for_piece(piece)

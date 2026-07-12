@@ -5,6 +5,7 @@ import config
 
 
 class Game:
+    """Coordinates board state, move validation, real-time motion, and game-over detection."""
 
     def __init__(self, board):
         self._board = board

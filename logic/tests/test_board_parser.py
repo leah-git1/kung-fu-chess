@@ -1,3 +1,4 @@
+import pytest
 from board.board_parser import BoardParser
 from board.piece import Piece
 from board.piece_type import PieceType
@@ -57,3 +58,17 @@ def test_parses_black_pieces():
     board = _parser.parse(lines)
     assert board.get_piece(0, 0) == Piece("b", PieceType.KING)
     assert board.get_piece(0, 1) == Piece("b", PieceType.ROOK)
+
+
+def test_invalid_piece_type_raises():
+    from errors.parse_error import ParseError
+    lines = ["Board:", "wX .", "Commands:"]
+    with pytest.raises(ParseError):
+        _parser.parse(lines)
+
+
+def test_single_char_token_raises():
+    from errors.parse_error import ParseError
+    lines = ["Board:", "w .", "Commands:"]
+    with pytest.raises(ParseError):
+        _parser.parse(lines)

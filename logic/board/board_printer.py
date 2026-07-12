@@ -1,7 +1,3 @@
-import config
-from board.piece import Piece
-
-
 class BoardPrinter:
     """Renders a board snapshot to text. Symmetric counterpart to BoardParser."""
 
@@ -12,6 +8,4 @@ class BoardPrinter:
         )
 
     def _cell_token(self, cell) -> str:
-        if cell is Piece.EMPTY:
-            return config.EMPTY_CELL
-        return cell.color + cell.piece_type.value
+        return repr(cell)

@@ -1,4 +1,3 @@
-from commands.commands import Command, CommandType
 from commands.click_command import ClickCommand
 from commands.jump_command import JumpCommand
 from commands.wait_command import WaitCommand
@@ -6,78 +5,34 @@ from commands.print_command import PrintBoardCommand
 from errors.command_error import CommandError
 import config
 
+
 class CommandParser:
 
-
     COMMAND_MAP = {
-        "move": CommandType.MOVE,
-        "jump": CommandType.JUMP,
-        "shortbreak": CommandType.SHORT_BREAK,
-        "wait": CommandType.WAIT,
-        "click": CommandType.CLICK,
-        "print": CommandType.PRINT_BOARD
+        "click":  ClickCommand,
+        "jump":   JumpCommand,
+        "wait":   WaitCommand,
+        "print":  PrintBoardCommand,
     }
 
-
-
     def parse(self, lines):
-
         commands = []
-
         reading_commands = False
 
-
         for line in lines:
-
             line = line.strip()
-
-
             if line == config.COMMANDS_HEADER:
                 reading_commands = True
                 continue
-
-
-            if not reading_commands:
+            if not reading_commands or not line:
                 continue
-
-
-            if not line:
-                continue
-
-
-            command = self._parse_command(line)
-
-            if command:
-                commands.append(command)
-
+            commands.append(self._parse_command(line))
 
         return commands
 
-
-
     def _parse_command(self, line):
         parts = line.split()
-        command_name = parts[0].lower()
-
-        if command_name not in self.COMMAND_MAP:
-            raise CommandError(f"Unknown command: '{command_name}'")
-
-        command_type = self.COMMAND_MAP[command_name]
-
-        parameters = []
-        for value in parts[1:]:
-            try:
-                parameters.append(int(value))
-            except ValueError:
-                parameters.append(value)
-
-        if command_type == CommandType.CLICK:
-            return ClickCommand(parameters[0], parameters[1])
-        elif command_type == CommandType.JUMP:
-            return JumpCommand(parameters[0], parameters[1])
-        elif command_type == CommandType.WAIT:
-            return WaitCommand(parameters[0])
-        elif command_type == CommandType.PRINT_BOARD:
-            return PrintBoardCommand()
-        
-        return Command(command_type, parameters)
+        command_cls = self.COMMAND_MAP.get(parts[0].lower())
+        if command_cls is None:
+            raise CommandError(f"Unknown command: '{parts[0]}'")
+        return command_cls.from_parameters(parts[1:])

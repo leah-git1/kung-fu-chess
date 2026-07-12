@@ -44,3 +44,9 @@ def test_empty_board_passes():
 def test_single_cell_board_passes():
     board = Board([[_piece("w", PieceType.KING)]])
     _v.validate(board)  # should not raise
+
+
+def test_empty_row_inside_grid_fails():
+    board = Board([[_piece("w", PieceType.KING), Piece.EMPTY], []])
+    with pytest.raises(BoardError):
+        _v.validate(board)

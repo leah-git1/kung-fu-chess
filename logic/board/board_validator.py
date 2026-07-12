@@ -3,6 +3,7 @@ from errors.board_error import BoardError
 
 
 class BoardValidator:
+    """Validates that a Board has consistent row widths and only contains Piece objects."""
 
     def validate(self, board):
         self._validate_row_width(board)

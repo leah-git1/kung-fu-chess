@@ -1,4 +1,5 @@
 class Motion:
+    """Base class for a timed in-flight action."""
 
     def __init__(self, piece, finish_time: int):
         self.piece = piece
@@ -9,6 +10,7 @@ class Motion:
 
 
 class MoveMotion(Motion):
+    """Represents a piece moving from one cell to another over time."""
 
     def __init__(self, piece, origin, destination, finish_time: int):
         super().__init__(piece, finish_time)
@@ -17,6 +19,7 @@ class MoveMotion(Motion):
 
 
 class JumpMotion(Motion):
+    """Represents a piece jumping in place, making it airborne for a duration."""
 
     def __init__(self, piece, cell, finish_time: int):
         super().__init__(piece, finish_time)

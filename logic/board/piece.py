@@ -1,7 +1,8 @@
 from __future__ import annotations
-
+import config
 
 class Piece:
+    """Represents a single chess piece with a color and type. The singleton EMPTY represents an empty cell."""
 
     def __init__(
         self,
@@ -24,7 +25,7 @@ class Piece:
 
     def __repr__(self):
         if self is Piece.EMPTY:
-            return "."
+            return config.EMPTY_CELL
         return self.color + self.piece_type.value
 
     def __eq__(self, other):
@@ -38,4 +39,4 @@ class Piece:
         return hash((self.color, self.piece_type))
 
 
-Piece.EMPTY = Piece(color=".", piece_type=None)
+Piece.EMPTY = Piece(color=config.EMPTY_CELL, piece_type=None)

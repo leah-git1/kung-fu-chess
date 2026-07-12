@@ -1,6 +1,7 @@
 from board.piece import Piece
 
 class Board:
+    """Holds the grid of pieces and exposes positional queries and mutations."""
 
     def __init__(self, grid):
         self.grid = grid

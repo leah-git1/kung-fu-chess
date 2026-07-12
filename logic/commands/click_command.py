@@ -8,5 +8,9 @@ class ClickCommand(Command):
         self.x = x
         self.y = y
 
+    @classmethod
+    def from_parameters(cls, parts: list):
+        return cls(int(parts[0]), int(parts[1]))
+
     def execute(self, game, controller) -> None:
         controller.on_click(self.x, self.y, game)

@@ -1,13 +1,11 @@
 from enum import Enum
 from abc import ABC, abstractmethod
 
-class CommandType(Enum):
-    MOVE = "move"
-    JUMP = "jump"
-    SHORT_BREAK = "short_break"
-    WAIT = "wait"
-    CLICK = "click"
-    PRINT_BOARD = "print_board"
+# class CommandType(Enum):
+#     JUMP = "jump"
+#     WAIT = "wait"
+#     CLICK = "click"
+#     PRINT_BOARD = "print_board"
 
 
 class Command(ABC):
@@ -26,6 +24,11 @@ class Command(ABC):
 
     def __repr__(self):
         return f"Command(type={self._command_type}, parameters={self._parameters})"
+
+    @classmethod
+    @abstractmethod
+    def from_parameters(cls, parts: list):
+        pass
 
     @abstractmethod
     def execute(self, game, controller=None):

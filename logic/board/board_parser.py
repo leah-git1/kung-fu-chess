@@ -5,6 +5,7 @@ from errors.parse_error import ParseError
 import config
 
 class BoardParser:
+    """Parses a text script into a Board by reading lines between Board: and Commands: headers."""
 
 
     def parse(self, lines):
