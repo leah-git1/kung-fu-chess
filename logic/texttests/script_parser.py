@@ -1,11 +1,11 @@
 import config
+from texttests.base_script_parser import BaseScriptParser
 
 EXPECTED_HEADER = "Expected:"
 
 
-class ScriptParser:
-    """Splits a raw script text into board lines, command lines, and expected output lines.
-    Does not create a Board — delegates that to BoardParser."""
+class ScriptParser(BaseScriptParser):
+    """Parses a game script from a list of text lines."""
 
     def parse(self, lines: list) -> tuple:
         board_lines = []

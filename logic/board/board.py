@@ -15,6 +15,10 @@ class Board:
     def is_inside(self, r, c):
         return 0 <= r < self.rows and 0 <= c < self.cols
 
+    @classmethod
+    def from_grid(cls, grid):
+        return cls(grid)
+
     def rows_iter(self):
         return (row[:] for row in self.grid)
 
