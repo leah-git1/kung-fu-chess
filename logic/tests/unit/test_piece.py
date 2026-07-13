@@ -54,3 +54,8 @@ def test_piece_is_hashable():
 def test_empty_is_hashable():
     s = {Piece.EMPTY, Piece.EMPTY}
     assert len(s) == 1
+
+
+def test_eq_with_non_piece_returns_not_implemented():
+    result = _p("w", PieceType.KING).__eq__("wK")
+    assert result is NotImplemented

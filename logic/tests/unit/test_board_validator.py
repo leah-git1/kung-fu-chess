@@ -50,3 +50,8 @@ def test_empty_row_inside_grid_fails():
     board = Board([[_piece("w", PieceType.KING), Piece.EMPTY], []])
     with pytest.raises(BoardError):
         _v.validate(board)
+
+
+def test_zero_row_board_passes():
+    board = Board([])
+    _v.validate(board)  # empty grid — early return, no error

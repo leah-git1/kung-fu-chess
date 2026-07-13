@@ -156,7 +156,8 @@ class PawnMovement(MovementStrategy):
         target_type_value = config.PROMOTION_TARGETS.get(piece.piece_type.value)
         if target_type_value is None:
             return piece
-        return Piece(piece.color, PieceType(target_type_value))
+        piece.piece_type = PieceType(target_type_value)
+        return piece
 
     def _start_row(self, color: str, board_rows: int) -> int:
         return board_rows - 2 if config.FORWARD_DIRECTION[color] < 0 else 1

@@ -119,3 +119,25 @@ def test_captured_piece_cell_is_cleared():
     board.move((0, 0), (0, 1))  # wK captures bP
     assert board.get_piece(0, 1) == wk
     assert board.get_piece(0, 0) is Piece.EMPTY
+
+
+def test_set_piece_outside_board_is_ignored():
+    board = empty_board(rows=4, cols=4)
+    board.set_piece(9, 9, _piece("w", PieceType.KING))  # out of bounds — no-op
+    assert board.get_piece(9, 9) is None
+
+
+def test_is_empty_returns_true_for_empty_cell():
+    board = empty_board()
+    assert board.is_empty(0, 0) is True
+
+
+def test_is_empty_returns_false_for_occupied_cell():
+    wk = _piece("w", PieceType.KING)
+    board = board_with({(0, 0): wk})
+    assert board.is_empty(0, 0) is False
+
+
+def test_is_empty_returns_false_for_out_of_bounds():
+    board = empty_board(rows=4, cols=4)
+    assert board.is_empty(9, 9) is False

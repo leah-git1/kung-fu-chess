@@ -1,5 +1,5 @@
 from board.board import Board
-from board.piece import Piece
+from board.piece import Piece, PieceState
 from board.piece_type import PieceType
 from realtime.real_time_arbiter import RealTimeArbiter
 
@@ -99,14 +99,16 @@ def test_enemy_at_destination_is_captured():
     assert _p("bP") in captured
 
 
-def test_friendly_at_destination_cancels_move():
+def test_friendly_at_destination_piece_stops_before_it():
+    # Friendly already occupying the destination: rook stops one cell short.
     arbiter = RealTimeArbiter()
     board = board_with({(0, 0): "wR", (0, 7): "wP"})
     arbiter.add_move(_p("wR"), (0, 0), (0, 7), finish_time=1000)
     captured, applied = arbiter.advance(1000, board)
     assert len(captured) == 0
-    assert len(applied) == 0
-    assert board.get_piece(0, 7) == _p("wP")
+    assert len(applied) == 1
+    assert board.get_piece(0, 6) == _p("wR")  # stopped one cell before the friendly
+    assert board.get_piece(0, 7) == _p("wP")  # friendly untouched
 
 
 # ------------------------------------------------------------------
@@ -170,20 +172,36 @@ def test_airborne_piece_stays_on_cell_after_interception():
 
 
 # ------------------------------------------------------------------
-# advance — two pieces arriving at the same destination
+# Scenario 1 — two enemies reach the same square at different times
+#              → later arrival captures the earlier one
 # ------------------------------------------------------------------
 
-def test_two_friendly_pieces_arrive_same_cell_second_cancelled():
+def test_enemy_arrives_later_captures_earlier():
+    # wR arrives at (0,4) at t=1000; bR arrives at (0,4) at t=2000.
+    # After both ticks: bR should occupy (0,4) and wR should be captured.
     arbiter = RealTimeArbiter()
-    board = board_with({(0, 0): "wR", (0, 7): "wB"})
-    arbiter.add_move(_p("wR"), (0, 0), (0, 4), finish_time=1000)
-    arbiter.add_move(_p("wB"), (0, 7), (0, 4), finish_time=1000)
-    captured, applied = arbiter.advance(1000, board)
-    assert len(captured) == 0
-    assert len(applied) == 1
+    board = board_with({(0, 0): "wR", (0, 7): "bR"})
+    wr = board.get_piece(0, 0)
+    br = board.get_piece(0, 7)
+    arbiter.add_move(wr, (0, 0), (0, 4), finish_time=1000)
+    arbiter.add_move(br, (0, 7), (0, 4), finish_time=2000)
+
+    captured1, _ = arbiter.advance(1000, board)
+    assert len(captured1) == 0
+    assert board.get_piece(0, 4) == _p("wR")
+
+    captured2, _ = arbiter.advance(2000, board)
+    assert _p("wR") in captured2
+    assert board.get_piece(0, 4) == _p("bR")
 
 
-def test_two_enemy_pieces_arrive_same_cell_second_captures_first():
+# ------------------------------------------------------------------
+# Scenario 2 — two enemies reach the same square at the same time
+#              → resolve deterministically by insertion order
+# ------------------------------------------------------------------
+
+def test_two_enemies_arrive_same_time_first_inserted_lands_second_captures():
+    # wR added first → lands first; bR added second → captures wR.
     arbiter = RealTimeArbiter()
     board = board_with({(0, 0): "wR", (0, 7): "bR"})
     arbiter.add_move(_p("wR"), (0, 0), (0, 4), finish_time=1000)
@@ -191,3 +209,90 @@ def test_two_enemy_pieces_arrive_same_cell_second_captures_first():
     captured, applied = arbiter.advance(1000, board)
     assert len(captured) == 1
     assert len(applied) == 2
+    assert board.get_piece(0, 4) == _p("bR")
+
+
+# ------------------------------------------------------------------
+# Scenario 3 — two friendlies move toward the same destination
+#              → both start, finish on different legal squares
+# ------------------------------------------------------------------
+
+def test_two_friendlies_toward_same_dest_both_start_finish_different_squares():
+    # wR from (0,0) → (0,4), wB from (0,7) → (0,4), same finish time.
+    # wR lands at (0,4); wB stops at (0,5) (one cell short from the right).
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR", (0, 7): "wB"})
+    wr = board.get_piece(0, 0)
+    wb = board.get_piece(0, 7)
+    arbiter.add_move(wr, (0, 0), (0, 4), finish_time=1000)
+    arbiter.add_move(wb, (0, 7), (0, 4), finish_time=1000)
+
+    captured, applied = arbiter.advance(1000, board)
+    assert len(captured) == 0
+    assert len(applied) == 2
+    # Both pieces must be on different squares
+    dest_wr = board.get_piece(0, 4)
+    dest_wb = board.get_piece(0, 5)
+    assert dest_wr == _p("wR")
+    assert dest_wb == _p("wB")
+
+
+# ------------------------------------------------------------------
+# Scenario 4 — a friendly piece blocks another during movement
+#              → later piece stops at nearest legal square
+# ------------------------------------------------------------------
+
+def test_friendly_moves_into_path_piece_stops_before_it():
+    # wR moves (0,0)→(0,7); wB is placed at (0,4) before arrival resolves.
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR"})
+    arbiter.add_move(_p("wR"), (0, 0), (0, 7), finish_time=1000)
+    board.set_piece(0, 4, _p("wB"))  # friendly moved into path mid-flight
+    captured, applied = arbiter.advance(1000, board)
+    assert len(captured) == 0
+    assert len(applied) == 1
+    assert board.get_piece(0, 3) == _p("wR")  # stopped one cell before blocker
+    assert board.get_piece(0, 4) == _p("wB")  # blocker untouched
+
+
+def test_enemy_moves_into_path_piece_captures_it():
+    # wR moves (0,0)→(0,7); bB appears at (0,4) before arrival.
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR"})
+    arbiter.add_move(_p("wR"), (0, 0), (0, 7), finish_time=1000)
+    board.set_piece(0, 4, _p("bB"))  # enemy moved into path mid-flight
+    captured, applied = arbiter.advance(1000, board)
+    assert len(captured) == 1
+    assert len(applied) == 1
+    assert board.get_piece(0, 4) == _p("wR")  # rook captured and took the cell
+
+
+def test_friendly_at_first_step_piece_stays_at_origin():
+    # wR moves (0,0)→(0,7); wB is at (0,1) — no room at all.
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR", (0, 1): "wB"})
+    arbiter.add_move(_p("wR"), (0, 0), (0, 7), finish_time=1000)
+    captured, applied = arbiter.advance(1000, board)
+    assert len(captured) == 0
+    assert len(applied) == 0
+    assert board.get_piece(0, 0) == _p("wR")  # piece stays put
+
+
+# ------------------------------------------------------------------
+# In-flight origin treated as vacated
+# ------------------------------------------------------------------
+
+def test_two_pieces_crossing_paths_do_not_block_each_other():
+    # wR: (0,0)→(0,7), wB: (0,3)→(0,0), same finish time.
+    # wB's origin (0,3) is in wR's path but is vacated — wR should pass through.
+    arbiter = RealTimeArbiter()
+    board = board_with({(0, 0): "wR", (0, 3): "wB"})
+    wr = board.get_piece(0, 0)
+    wb = board.get_piece(0, 3)
+    arbiter.add_move(wr, (0, 0), (0, 7), finish_time=1000)
+    arbiter.add_move(wb, (0, 3), (0, 0), finish_time=1000)
+    captured, applied = arbiter.advance(1000, board)
+    assert len(captured) == 0
+    assert len(applied) == 2
+    assert board.get_piece(0, 7) == _p("wR")
+    assert board.get_piece(0, 0) == _p("wB")
