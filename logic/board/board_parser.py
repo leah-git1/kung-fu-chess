@@ -40,8 +40,8 @@ class BoardParser:
             grid.append([self._parse_cell(token) for token in line.split()])
 
 
-        return Board(grid)
-
+        return Board.from_grid(grid)
+    
 
     def _parse_cell(self, token: str):
         if token == config.EMPTY_CELL:

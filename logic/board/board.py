@@ -8,6 +8,10 @@ class Board:
         self.rows = len(grid)
         self.cols = len(grid[0]) if grid else 0
 
+    @classmethod
+    def create(cls, grid):
+        return cls(grid)
+    
     def is_inside(self, r, c):
         return 0 <= r < self.rows and 0 <= c < self.cols
 
