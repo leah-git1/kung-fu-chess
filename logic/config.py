@@ -10,7 +10,6 @@ EMPTY_CELL = "."
 CELL_SIZE = 100
 MOVE_DURATION_PER_CELL = 1000
 JUMP_DURATION = 1000
-COOLDOWN_DURATION = 1000
 
 
 # ============================================================================
@@ -55,4 +54,18 @@ KNIGHT_MOVE_OFFSETS = frozenset({
     (2, 1), (2, -1), (-2, 1), (-2, -1),
     (1, 2), (1, -2), (-1, 2), (-1, -2)
 })
+
+
+# Two-tier rest system (state machine): every piece that finishes an action
+# passes through a rest state before it becomes IDLE again.
+#   JUMP -> SHORT_REST -> IDLE
+#   MOVE -> LONG_REST  -> IDLE
+# Matches the CTD26 asset repo's per-state config.json
+# ("next_state_when_finished": "short_rest" / "long_rest") - see
+# graphics/assets/pieces/<KEY>/states/{jump,move}/config.json.
+SHORT_REST_DURATION = 1000   # rest after a jump
+LONG_REST_DURATION = 2000    # rest after a move
+
+
+
 

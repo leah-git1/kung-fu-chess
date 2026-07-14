@@ -1,4 +1,5 @@
 from board.piece import Piece, PieceState
+from board.piece_type import PieceType
 from realtime.motion import MoveMotion, JumpMotion, CooldownMotion
 import config
 
@@ -29,6 +30,7 @@ class RealTimeArbiter:
         self._motions.append(MoveMotion(piece, origin, destination, finish_time))
 
     def add_jump(self, piece, cell, finish_time: int) -> None:
+        piece.state = PieceState.JUMPING
         self._motions.append(JumpMotion(piece, cell, finish_time))
 
     # ------------------------------------------------------------------
@@ -45,9 +47,17 @@ class RealTimeArbiter:
         return any(isinstance(m, JumpMotion) and m.cell == cell for m in self._motions)
 
     def active_moves(self) -> list:
+        """
+        Read-only snapshot of in-flight MoveMotions, for rendering only.
+        Never mutated by callers; used by the graphics layer to interpolate
+        a piece's on-screen position between origin and destination while
+        `piece.state is PieceState.MOVING`. Adds no new state and changes no
+        existing behaviour.
+        """
         return [m for m in self._motions if isinstance(m, MoveMotion)]
 
     def active_jumps(self) -> list:
+        """Read-only snapshot of in-flight JumpMotions, for rendering only."""
         return [m for m in self._motions if isinstance(m, JumpMotion)]
 
     # ------------------------------------------------------------------
@@ -97,7 +107,16 @@ class RealTimeArbiter:
                 self._resolve_move(motion, board, captured, applied, current_time, in_flight_origins)
 
         for motion in other_finishing:
-            if isinstance(motion, CooldownMotion):
+            if isinstance(motion, JumpMotion):
+                # JUMP -> SHORT_REST -> IDLE. This transition used to be
+                # missing entirely: a finished jump left piece.state
+                # untouched, so the piece never rested and its clip never
+                # switched to the short_rest sprite.
+                motion.piece.state = PieceState.SHORT_REST
+                self._motions.append(
+                    CooldownMotion(motion.piece, current_time + config.SHORT_REST_DURATION)
+                )
+            elif isinstance(motion, CooldownMotion):
                 motion.piece.state = PieceState.IDLE
 
         # Keep motions that did not finish this tick, plus any CooldownMotions
@@ -112,9 +131,7 @@ class RealTimeArbiter:
 
     def _resolve_move(self, motion: MoveMotion, board, captured: list, applied: list,
                       current_time: int, in_flight_origins: set) -> None:
-        actual_dest = self._last_reachable_cell(
-            motion.origin, motion.destination, motion.piece, board, in_flight_origins
-        )
+        actual_dest = self._resolve_destination(motion, board, in_flight_origins)
         if actual_dest is None:
             motion.piece.state = PieceState.IDLE
             return
@@ -125,8 +142,33 @@ class RealTimeArbiter:
         motion.destination = actual_dest
         board.move(motion.origin, actual_dest)
         applied.append(motion)
-        motion.piece.state = PieceState.COOLDOWN
-        self._motions.append(CooldownMotion(motion.piece, current_time + config.COOLDOWN_DURATION))
+        motion.piece.state = PieceState.LONG_REST
+        self._motions.append(CooldownMotion(motion.piece, current_time + config.LONG_REST_DURATION))
+
+    def _resolve_destination(self, motion: MoveMotion, board, in_flight_origins: set):
+        """
+        Picks the cell a finishing MoveMotion actually lands on.
+
+        Sliding pieces (rook/bishop/queen/king/pawn) walk a straight line from
+        origin to destination, so _last_reachable_cell's step-by-step blocking
+        check applies to them. A knight's move is an L-shape, not a straight
+        line, so that same step-by-step walk does not trace the knight's real
+        path at all - it was checking unrelated cells for "blocking" pieces
+        and could wrongly cancel a perfectly legal knight move. Knights jump
+        over everything in between, so only the destination square matters.
+        """
+        if motion.piece.piece_type == PieceType.KNIGHT:
+            dest = motion.destination
+            vacated = in_flight_origins | {motion.origin}
+            dest_piece = board.get_piece(*dest)
+            if dest_piece is not Piece.EMPTY and dest not in vacated:
+                if motion.piece.is_same_color(dest_piece):
+                    return None  # destination occupied by a friendly piece
+            return dest
+
+        return self._last_reachable_cell(
+            motion.origin, motion.destination, motion.piece, board, in_flight_origins
+        )
 
     def _last_reachable_cell(self, origin, destination, piece, board, in_flight_origins: set):
         """

@@ -4,9 +4,22 @@ import config
 
 
 class PieceState(Enum):
+    """
+    States shared by every piece (state machine). Names match the sprite
+    folder names in graphics/assets/pieces/<KEY>/states/ exactly, so the
+    graphics layer can look up piece.state.value directly:
+
+        IDLE -> MOVING -> LONG_REST  -> IDLE   (after a move)
+        IDLE -> JUMPING -> SHORT_REST -> IDLE  (after a jump)
+
+    A piece is only "available" (can be commanded to move or jump) while
+    IDLE - see RealTimeArbiter.is_piece_available.
+    """
     IDLE = "idle"
     MOVING = "moving"
-    COOLDOWN = "cooldown"
+    JUMPING = "jumping"
+    SHORT_REST = "short_rest"
+    LONG_REST = "long_rest"
     CAPTURED = "captured"
 
 
