@@ -30,5 +30,4 @@ class SpriteLoader:
 
     @staticmethod
     def piece_key(piece):
-        # matches the CTD26 asset folder names exactly, e.g. "PW", "NB"
         return f"{piece.piece_type.value}{piece.color.upper()}"

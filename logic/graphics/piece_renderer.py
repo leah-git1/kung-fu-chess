@@ -52,7 +52,5 @@ class PieceRenderer:
 
     @staticmethod
     def _move_duration(origin, destination):
-        # mirrors Game._move_duration exactly - duplicated on purpose so
-        # graphics never needs a private hook into Game's internals
         return max(abs(destination[0]-origin[0]), abs(destination[1]-origin[1])) \
             * logic_config.MOVE_DURATION_PER_CELL
