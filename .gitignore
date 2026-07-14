@@ -19,7 +19,7 @@ env/
 
 # OS files
 .DS_Store
-Thumbs.db
+Thumbs.db__
 
 # Logs
 *.log
@@ -34,3 +34,7 @@ dist/
 *.swp
 
 stream.txt
+logic/.coveragerc
+logic/.coverage
+logic/htmlcov/
+logic/.pytest_cache/

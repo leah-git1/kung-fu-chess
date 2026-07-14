@@ -333,17 +333,15 @@ def test_apply_on_arrival_skipped_when_destination_empty_after_interception():
 # ------------------------------------------------------------------
 
 def test_apply_on_arrival_skipped_when_no_strategy():
-    # Piece.EMPTY has no strategy. Manually trigger _apply_on_arrival with a
-    # move whose destination holds a piece with piece_type=None (i.e. EMPTY).
-    # We do this by calling the private method directly.
     from realtime.motion import MoveMotion
+    from board.piece import PieceState
+    # Put a piece with piece_type=None (EMPTY) at destination -> strategy is None -> line 92
     game = Game(_board({}))
-    # Build a fake motion whose destination is an empty cell
-    from board.piece import Piece
-    motion = MoveMotion(Piece.EMPTY, (0, 0), (0, 1), 0)
-    game._apply_on_arrival(motion)  # piece at (0,1) is EMPTY -> returns at line 89
-    # Now put a piece with no strategy at destination and call again
-    game._board.set_piece(0, 1, Piece.EMPTY)  # already empty, just confirming no crash
+    fake_piece = Piece("w", None)
+    game._board.set_piece(0, 1, fake_piece)
+    motion = MoveMotion(fake_piece, (0, 0), (0, 1), 0)
+    game._apply_on_arrival(motion)  # strategy is None -> returns at line 92
+    assert game._board.get_piece(0, 1) is fake_piece  # board unchanged
 
 
 # ------------------------------------------------------------------
