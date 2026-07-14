@@ -60,6 +60,12 @@ class Game:
     def snapshot(self) -> list:
         return list(self._board.rows_iter())
 
+    def active_moves(self) -> list:
+        return self._arbiter.active_moves()
+
+    def active_jumps(self) -> list:
+        return self._arbiter.active_jumps()
+        
     def get_piece_at(self, cell: tuple):
         return self._board.get_piece(*cell)
 

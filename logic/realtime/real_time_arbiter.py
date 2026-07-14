@@ -44,6 +44,12 @@ class RealTimeArbiter:
     def is_airborne(self, cell) -> bool:
         return any(isinstance(m, JumpMotion) and m.cell == cell for m in self._motions)
 
+    def active_moves(self) -> list:
+        return [m for m in self._motions if isinstance(m, MoveMotion)]
+
+    def active_jumps(self) -> list:
+        return [m for m in self._motions if isinstance(m, JumpMotion)]
+
     # ------------------------------------------------------------------
     # Time advancement — resolves finished motions, returns events
     # ------------------------------------------------------------------
