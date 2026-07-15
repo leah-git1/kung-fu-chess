@@ -31,14 +31,17 @@ BOARD_PX_H = CELL_PX * BOARD_ROWS
 # ---------------------------------------------------------------------------
 # Sidebar (score, moves log, player names) layout
 # ---------------------------------------------------------------------------
-SIDEBAR_PX_W = 220
-TOP_BAR_H = 60          # name + score bar above the board
-WINDOW_PX_W = BOARD_PX_W + 2 * SIDEBAR_PX_W
+SIDEBAR_PX_W = 240
+BOARD_SIDE_GAP = 20     # gap between board and each side panel
+TOP_BAR_H = 80          # name row + score row above the board
+TOP_NAME_H = 44         # height of the "Black vs White" title row
+TOP_SCORE_H = 36        # height of the "Score: Even" row
+WINDOW_PX_W = BOARD_PX_W + 2 * SIDEBAR_PX_W + 2 * BOARD_SIDE_GAP
 WINDOW_PX_H = BOARD_PX_H + TOP_BAR_H
 
 MOVES_LOG_H = BOARD_PX_H
-MOVES_LOG_ROW_H = 22
-MOVES_LOG_HEADER_H = 28
+MOVES_LOG_ROW_H = 28
+MOVES_LOG_HEADER_H = 34
 
 # legacy aliases kept so nothing else breaks
 PLAYER_NAME_BAR_H = TOP_BAR_H
@@ -84,13 +87,20 @@ CAPTURE_FADE_MS = 400
 # Colors (RGBA) - only used for programmatically drawn overlays (highlights,
 # selection marker, text). Board/piece pixels come from sprite images.
 # ---------------------------------------------------------------------------
-COLOR_LIGHT_SQUARE = (237, 214, 176, 255)   # warm light tan
-COLOR_DARK_SQUARE  = (184, 111,  55, 255)   # medium warm brown
+COLOR_LIGHT_SQUARE = (200, 185, 155, 255)   # darker warm tan
+COLOR_DARK_SQUARE  = (100,  60,  20, 255)   # deep dark brown
 COLOR_SELECTED = (246, 246, 105, 160)
 COLOR_LEGAL_DOT = (20, 20, 20, 120)
-COLOR_TEXT = (20, 20, 20, 255)
-COLOR_PANEL_BG = (30, 30, 30, 255)
-COLOR_PANEL_TEXT = (235, 235, 235, 255)
+COLOR_TEXT = (220, 220, 220, 255)
+COLOR_PANEL_BG    = ( 30,  30,  30, 255)   # near-black panel background
+COLOR_PANEL_TEXT  = (220, 220, 220, 255)   # light text on dark bg
+COLOR_PANEL_HEADER= ( 45,  45,  45, 255)   # slightly lighter header row
+COLOR_PANEL_LINE  = ( 70,  70,  70, 255)   # subtle divider lines
+COLOR_GOLD        = ( 30, 190, 210, 255)   # gold accent (BGR: 30,190,210)
+
+# Cooldown overlay drawn behind a piece during LONG_REST / SHORT_REST
+COOLDOWN_BAR_COLOR       = ( 30, 210, 240, 160)  # gold/yellow  – after move  (BGR)
+COOLDOWN_BAR_COLOR_SHORT = (180,  80, 255, 160)  # purple/violet – after jump (BGR)
 
 
 WINDOW_TITLE = "Kung-Fu Chess"

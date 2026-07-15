@@ -1,14 +1,17 @@
-from board.piece import Piece
+from board.piece import Piece, PieceState
 from graphics import gfx_config
 from graphics.sprites.animation_state_machine import AnimationState
 from graphics.sprites.sprite_loader import SpriteLoader
 import config as logic_config
+import cv2
+import numpy as np
 
 class PieceRenderer:
     def __init__(self, layout, loader=None):
         self._layout = layout
         self._loader = loader or SpriteLoader()
-        self._states = {}   # id(piece) -> AnimationState
+        self._states = {}          # id(piece) -> AnimationState
+        self._rest_started = {}    # id(piece) -> now_ms when LONG_REST began
 
     def render(self, canvas, game, now_ms):
         board_grid = game.snapshot()
@@ -52,7 +55,52 @@ class PieceRenderer:
 
         x = self._layout.board_origin_x + int(col * cell_px) + offset
         y = self._layout.board_origin_y + int(row * cell_px) + offset
+
+        self._draw_cooldown_bar(canvas, piece, now_ms, x, y, cell_size, offset)
         frame.resize(sprite_size, sprite_size).draw_on(canvas, x, y)
+
+    def _draw_cooldown_bar(self, canvas, piece, now_ms, x, y, cell_size, offset):
+        """Fill the whole cell with a colored overlay that shrinks downward during rest states."""
+        pid = id(piece)
+        if piece.state == PieceState.LONG_REST:
+            duration = logic_config.LONG_REST_DURATION
+            color = gfx_config.COOLDOWN_BAR_COLOR
+        elif piece.state == PieceState.SHORT_REST:
+            duration = logic_config.SHORT_REST_DURATION
+            color = gfx_config.COOLDOWN_BAR_COLOR_SHORT
+        else:
+            self._rest_started.pop(pid, None)
+            return
+
+        if pid not in self._rest_started:
+            self._rest_started[pid] = now_ms
+        elapsed = now_ms - self._rest_started[pid]
+        progress = max(0.0, min(1.0, elapsed / duration))
+
+        bar_h = int(cell_size * (1.0 - progress))
+        if bar_h <= 0:
+            return
+
+        cx = x - offset
+        cy = y - offset + (cell_size - bar_h)
+
+        b, g, r, a = color
+        alpha = a / 255.0
+
+        img = canvas.img
+        H, W = img.shape[:2]
+        x1 = max(0, cx)
+        y1 = max(0, cy)
+        x2 = min(W, cx + cell_size)
+        y2 = min(H, cy + bar_h)
+        if x2 <= x1 or y2 <= y1:
+            return
+
+        roi = img[y1:y2, x1:x2].astype(np.float32)
+        roi[..., 0] = roi[..., 0] * (1 - alpha) + b * alpha
+        roi[..., 1] = roi[..., 1] * (1 - alpha) + g * alpha
+        roi[..., 2] = roi[..., 2] * (1 - alpha) + r * alpha
+        img[y1:y2, x1:x2] = roi.astype(np.uint8)
 
     @staticmethod
     def _move_duration(origin, destination):
