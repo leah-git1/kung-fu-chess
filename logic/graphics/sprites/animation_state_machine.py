@@ -6,8 +6,9 @@ class AnimationState:
         self._state_entered_at_ms = 0
         self._current_animation = None
 
-    def update(self, state_folder, now_ms):
-        if state_folder != self._current_folder:
+    def update(self, piece_key, state_folder, now_ms):
+        if piece_key != self._piece_key or state_folder != self._current_folder:
+            self._piece_key = piece_key
             self._current_folder = state_folder
             self._state_entered_at_ms = now_ms
             self._current_animation = self._loader.get_animation(self._piece_key, state_folder)

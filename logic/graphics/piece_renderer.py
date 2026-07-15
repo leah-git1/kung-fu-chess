@@ -40,8 +40,9 @@ class PieceRenderer:
 
     def _draw_piece_at(self, canvas, piece, row, col, now_ms, is_jumping):
         state = self._states.setdefault(id(piece), AnimationState(piece, self._loader))
+        piece_key = self._loader.piece_key(piece)
         folder = gfx_config.JUMP_FOLDER if is_jumping else gfx_config.STATE_TO_FOLDER[piece.state.value]
-        state.update(folder, now_ms)
+        state.update(piece_key, folder, now_ms)
         frame = state.current_frame(now_ms)
 
         cell_px = gfx_config.CELL_PX * self._layout.scale
