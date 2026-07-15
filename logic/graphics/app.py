@@ -17,6 +17,7 @@ from graphics.observers.moves_log import MovesLog
 from graphics.observers.score_board import ScoreBoard
 from graphics.panels.player_names_panel import PlayerNamesPanel
 from graphics.panels.game_over_panel import GameOverPanel
+from graphics.panels.start_game_panel import StartGamePanel
 from graphics.piece_renderer import PieceRenderer
 
 _STARTING_POSITION = """
@@ -52,6 +53,7 @@ class GraphicsApp(GameObserver):
 
         self.player_names_panel = PlayerNamesPanel(white_name, black_name)
         self.game_over_panel = GameOverPanel()
+        self.start_game_panel = StartGamePanel()
         self._winner_name = None
 
         mapper = BoardMapper(gfx_config.CELL_PX)
@@ -71,8 +73,9 @@ class GraphicsApp(GameObserver):
             for event in self._window.poll_events():
                 self._handle_input_event(event)
 
-            self.game.advance_time(elapsed)
-            self.event_source.poll(self.game)
+            if self.start_game_panel.done:
+                self.game.advance_time(elapsed)
+                self.event_source.poll(self.game)
             self._render_frame(self.game.current_time)
 
             remaining = gfx_config.FRAME_TIME_MS - elapsed
@@ -96,6 +99,9 @@ class GraphicsApp(GameObserver):
         if kind == "resize":
             self.input_adapter.on_window_resized(event["width"], event["height"])
         elif kind in ("left_click", "right_click"):
+            if not self.start_game_panel.done:
+                self.start_game_panel.on_click(event["x"], event["y"])
+                return
             self.input_adapter.on_mouse_event(kind, event["x"], event["y"])
 
     def _render_frame(self, now_ms):
@@ -128,7 +134,10 @@ class GraphicsApp(GameObserver):
 
         canvas.show(window_name=gfx_config.WINDOW_TITLE)
 
-        if self.game.game_over and self._winner_name:
+        if not self.start_game_panel.done:
+            self.start_game_panel.render(canvas)
+            canvas.show(window_name=gfx_config.WINDOW_TITLE)
+        elif self.game.game_over and self._winner_name:
             self.game_over_panel.render(canvas, self._winner_name)
             canvas.show(window_name=gfx_config.WINDOW_TITLE)
 
