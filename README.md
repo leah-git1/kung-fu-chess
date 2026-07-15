@@ -16,8 +16,7 @@ Inspired by the original Kung-Fu Chess game, built from scratch in Python using 
 
 **Gameplay**
 <p align="center">
-  <img src="assets/gameplay_1.png" width="48%" />
-  <img src="assets/gameplay_2.png" width="48%" />
+  <img src="assets/gameplay_2.png" width="70%" />
 </p>
 
 **Cooldown Overlays**
