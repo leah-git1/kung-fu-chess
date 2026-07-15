@@ -82,26 +82,26 @@ class TestAnimationState:
 
     def test_current_frame_after_update(self):
         state, _ = self._make()
-        state.update("idle", now_ms=0)
+        state.update("PW", "idle", 0)
         assert state.current_frame(0) == "f0"
 
     def test_elapsed_is_relative_to_state_entry(self):
         state, _ = self._make()
-        state.update("idle", now_ms=1000)
+        state.update("PW", "idle", 1000)
         # 100 ms after entry at fps=10 → frame 1
         assert state.current_frame(1100) == "f1"
 
     def test_folder_change_resets_elapsed(self):
         state, _ = self._make()
-        state.update("idle", now_ms=0)
-        state.update("move", now_ms=500)
+        state.update("PW", "idle", 0)
+        state.update("PW", "move", 500)
         # elapsed since "move" started = 0 → first move frame
         assert state.current_frame(500) == "m0"
 
     def test_same_folder_does_not_reset_elapsed(self):
         state, _ = self._make()
-        state.update("idle", now_ms=0)
-        state.update("idle", now_ms=999)   # same folder, should be ignored
+        state.update("PW", "idle", 0)
+        state.update("PW", "idle", 999)   # same folder, should be ignored
         # elapsed is still from t=0, so at now=200 → frame 2
         assert state.current_frame(200) == "f2"
 
@@ -115,7 +115,7 @@ class TestAnimationState:
 
         loader = TrackingLoader({"idle": FRAMES})
         state = AnimationState(piece=object(), loader=loader)
-        state.update("idle", now_ms=0)
-        state.update("idle", now_ms=100)
-        state.update("idle", now_ms=200)
+        state.update("PW", "idle", 0)
+        state.update("PW", "idle", 100)
+        state.update("PW", "idle", 200)
         assert calls.count("idle") == 1

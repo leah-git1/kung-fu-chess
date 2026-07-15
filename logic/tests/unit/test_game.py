@@ -58,7 +58,7 @@ def test_piece_can_move_again_after_arrival_and_cooldown():
     rook = game.get_piece_at((0, 0))
     game.request_move(rook, (0, 0), (0, 2))
     game.advance_time(2 * PER_CELL)
-    game.advance_time(config.COOLDOWN_DURATION)
+    game.advance_time(config.LONG_REST_DURATION)
     assert game.request_move(rook, (0, 2), (0, 4)) is True
 
 

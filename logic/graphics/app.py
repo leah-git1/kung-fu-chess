@@ -12,9 +12,11 @@ from graphics.img_provider import GameImg, WindowManager
 from graphics.input_adapter import InputAdapter
 from graphics.layout import Layout
 from graphics.observers.game_event_source import GameEventSource
+from graphics.observers.game_events import GameObserver
 from graphics.observers.moves_log import MovesLog
 from graphics.observers.score_board import ScoreBoard
 from graphics.panels.player_names_panel import PlayerNamesPanel
+from graphics.panels.game_over_panel import GameOverPanel
 from graphics.piece_renderer import PieceRenderer
 
 _STARTING_POSITION = """
@@ -31,7 +33,7 @@ Commands:
 """
 
 
-class GraphicsApp:
+class GraphicsApp(GameObserver):
     def __init__(self, white_name="White", black_name="Black"):
         board = BoardParser().parse(_STARTING_POSITION.strip().splitlines())
         self.game = Game(board)
@@ -46,8 +48,11 @@ class GraphicsApp:
         self.event_source.add_observer(self.moves_log_black)
         self.event_source.add_observer(self.moves_log_white)
         self.event_source.add_observer(self.score_board)
+        self.event_source.add_observer(self)   # GraphicsApp itself listens for royal captures
 
         self.player_names_panel = PlayerNamesPanel(white_name, black_name)
+        self.game_over_panel = GameOverPanel()
+        self._winner_name = None
 
         mapper = BoardMapper(gfx_config.CELL_PX)
         self.input_controller = InputController(mapper)
@@ -74,6 +79,18 @@ class GraphicsApp:
             if remaining > 0:
                 time.sleep(remaining / 1000)
 
+    def on_piece_captured(self, event):
+        """Detect royal capture to determine the winner."""
+        p = event.captured_piece
+        if p and p.piece_type and p.piece_type.value in ("K",):
+            if p.color == "w":
+                self._winner_name = self.player_names_panel.black_name
+            else:
+                self._winner_name = self.player_names_panel.white_name
+
+    def on_piece_moved(self, event):
+        pass
+
     def _handle_input_event(self, event):
         kind = event["type"]
         if kind == "resize":
@@ -88,40 +105,46 @@ class GraphicsApp:
         top_h = gfx_config.TOP_BAR_H
         log_h = gfx_config.MOVES_LOG_H
 
-        canvas = GameImg.blank(W, H, (18, 18, 18, 255))
+        canvas = GameImg.blank(W, H, (15, 15, 15, 255))
 
-        # top bar: name centered, score centered below name
-        self.player_names_panel.render(canvas, 0, 0, W, top_h // 2)
-        self.score_board.render(canvas, 0, top_h // 2, W, top_h // 2)
+        # top bar: "Black vs White" title, then score below it
+        name_h  = gfx_config.TOP_NAME_H
+        score_h = gfx_config.TOP_SCORE_H
+        self.player_names_panel.render(canvas, 0, 0, W, name_h)
+        self.score_board.render(canvas, 0, name_h, W, score_h)
 
         # board
         self.board_renderer.render(canvas, selected_cell=self.input_controller.selected)
         self.piece_renderer.render(canvas, self.game, now_ms)
 
         # black panel (left) — header label + moves log
-        self._render_side_label(canvas, "Black", 0, top_h, sw)
+        self._render_side_label(canvas, self.player_names_panel.black_name, 0, top_h, sw)
         self.moves_log_black.render(canvas, 0, top_h, sw, log_h)
 
         # white panel (right) — header label + moves log
         rx = self.layout.right_sidebar_x
-        self._render_side_label(canvas, "White", rx, top_h, sw)
+        self._render_side_label(canvas, self.player_names_panel.white_name, rx, top_h, sw)
         self.moves_log_white.render(canvas, rx, top_h, sw, log_h)
 
         canvas.show(window_name=gfx_config.WINDOW_TITLE)
 
+        if self.game.game_over and self._winner_name:
+            self.game_over_panel.render(canvas, self._winner_name)
+            canvas.show(window_name=gfx_config.WINDOW_TITLE)
+
     def _render_side_label(self, canvas, label, x, y, width):
-        """Draw a small white-box label (e.g. 'Black' / 'White') above the moves table."""
+        """Draw a gold-bordered dark label ('Black' / 'White') above the moves table."""
         import cv2
-        box_w, box_h = 100, 26
+        box_w, box_h = 130, 34
         bx = x + (width - box_w) // 2
-        by = y - box_h - 4
+        by = y - box_h - 6
         if by < 0:
             return
-        cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (255, 255, 255, 255), -1)
-        cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (180, 180, 180, 255), 1)
-        text_x = bx + (box_w - len(label) * 9) // 2
-        cv2.putText(canvas.img, label, (text_x, by + box_h - 6),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20, 20, 20, 255), 1, cv2.LINE_AA)
+        cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (20, 20, 20, 255), -1)
+        cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (30, 190, 210, 255), 2)
+        text_x = bx + (box_w - len(label) * 11) // 2
+        cv2.putText(canvas.img, label, (text_x, by + box_h - 9),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (220, 220, 220, 255), 1, cv2.LINE_AA)
 
     def _now_ms(self):
         return int(time.monotonic() * 1000)
