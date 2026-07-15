@@ -68,7 +68,7 @@ class GraphicsApp:
 
             self.game.advance_time(elapsed)
             self.event_source.poll(self.game)
-            self._render_frame(now)
+            self._render_frame(self.game.current_time)
 
             remaining = gfx_config.FRAME_TIME_MS - elapsed
             if remaining > 0:
