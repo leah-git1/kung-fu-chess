@@ -50,7 +50,7 @@ class PieceRenderer:
 
         cell_px = gfx_config.CELL_PX * self._layout.scale
         cell_size = max(1, int(cell_px))
-        sprite_size = max(1, int(cell_px * 0.85))
+        sprite_size = max(1, int(cell_px * 0.95))
         offset = (cell_size - sprite_size) // 2
 
         x = self._layout.board_origin_x + int(col * cell_px) + offset

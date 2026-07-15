@@ -11,15 +11,16 @@ class Layout:
         self._recompute()
 
     def _recompute(self):
-        available_w = max(1, self.window_px_w - 2 * gfx_config.SIDEBAR_PX_W)
+        gap = gfx_config.BOARD_SIDE_GAP
+        available_w = max(1, self.window_px_w - 2 * gfx_config.SIDEBAR_PX_W - 2 * gap)
         available_h = max(1, self.window_px_h - gfx_config.TOP_BAR_H)
         self.scale = min(available_w / gfx_config.BOARD_PX_W, available_h / gfx_config.BOARD_PX_H)
         self.board_px_w = int(gfx_config.BOARD_PX_W * self.scale)
         self.board_px_h = int(gfx_config.BOARD_PX_H * self.scale)
-        self.board_origin_x = gfx_config.SIDEBAR_PX_W + (available_w - self.board_px_w) // 2
+        self.board_origin_x = gfx_config.SIDEBAR_PX_W + gap + (available_w - self.board_px_w) // 2
         self.board_origin_y = gfx_config.TOP_BAR_H + (available_h - self.board_px_h) // 2
         self.left_sidebar_x = 0
-        self.right_sidebar_x = self.board_origin_x + self.board_px_w
+        self.right_sidebar_x = self.board_origin_x + self.board_px_w + gap
         # legacy alias
         self.sidebar_origin_x = self.right_sidebar_x
 

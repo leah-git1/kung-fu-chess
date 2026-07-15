@@ -33,32 +33,30 @@ class MovesLog(GameObserver):
         self._entries.append((_fmt_time(event.elapsed_ms), move))
 
     def render(self, canvas, x, y, width, height) -> None:
-        bg = (200, 200, 200, 255)
-        header_bg = (230, 230, 230, 255)
-        text_color = (20, 20, 20)
-        line_color = (160, 160, 160)
+        import cv2
+        bg     = gfx_config.COLOR_PANEL_BG[:3] + (255,)
+        hdr_bg = gfx_config.COLOR_PANEL_HEADER[:3] + (255,)
+        text   = gfx_config.COLOR_PANEL_TEXT[:3]
+        line   = gfx_config.COLOR_PANEL_LINE[:3]
 
         panel = GameImg.blank(width, height, bg)
 
-        # header
         hh = gfx_config.MOVES_LOG_HEADER_H
-        header = GameImg.blank(width, hh, header_bg)
-        header.put_text("Time", x=8, y=hh - 8, font_size=0.45, color=text_color, thickness=1)
-        header.put_text("Move", x=width // 2 + 4, y=hh - 8, font_size=0.45, color=text_color, thickness=1)
+        header = GameImg.blank(width, hh, hdr_bg)
+        header.put_text("Time", x=8,              y=hh - 8, font_size=0.55, color=text, thickness=1)
+        header.put_text("Move", x=width // 2 + 6, y=hh - 8, font_size=0.55, color=text, thickness=1)
         header.draw_on(panel, 0, 0)
 
-        # divider line between columns
-        import cv2
-        cv2.line(panel.img, (width // 2, 0), (width // 2, height), (*line_color, 255), 1)
-        cv2.line(panel.img, (0, hh), (width, hh), (*line_color, 255), 1)
+        cv2.line(panel.img, (width // 2, 0), (width // 2, height), (*line, 255), 1)
+        cv2.line(panel.img, (0, hh), (width, hh), (*line, 255), 1)
 
         rh = gfx_config.MOVES_LOG_ROW_H
         max_rows = (height - hh) // rh
         visible = self._entries[-max_rows:]
         for i, (t, m) in enumerate(visible):
             ry = hh + i * rh
-            panel.put_text(t, x=4, y=ry + rh - 7, font_size=0.38, color=text_color, thickness=1)
-            panel.put_text(m, x=width // 2 + 4, y=ry + rh - 7, font_size=0.38, color=text_color, thickness=1)
-            cv2.line(panel.img, (0, ry + rh), (width, ry + rh), (*line_color, 255), 1)
+            panel.put_text(t, x=6,              y=ry + rh - 8, font_size=0.50, color=text, thickness=1)
+            panel.put_text(m, x=width // 2 + 6, y=ry + rh - 8, font_size=0.50, color=text, thickness=1)
+            cv2.line(panel.img, (0, ry + rh), (width, ry + rh), (*line, 255), 1)
 
         panel.draw_on(canvas, x, y)
