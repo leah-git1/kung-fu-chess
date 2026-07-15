@@ -1,13 +1,13 @@
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class PieceMovedEvent:
-    piece: object; origin: tuple; destination: tuple
+    piece: object; origin: tuple; destination: tuple; elapsed_ms: int = 0
 
 @dataclass(frozen=True)
 class PieceCapturedEvent:
-    captured_piece: object; at_cell: tuple; by_piece: object = None
+    captured_piece: object; at_cell: tuple; by_piece: object = None; elapsed_ms: int = 0
 
 class GameObserver(ABC):
     def on_piece_moved(self, event): pass

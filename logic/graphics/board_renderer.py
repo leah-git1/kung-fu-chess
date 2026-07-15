@@ -1,25 +1,49 @@
+import cv2
+import numpy as np
 from graphics import gfx_config
 from graphics.img_provider import GameImg
 from graphics.layout import Layout
 
+
+def _recolor_board(src_img: GameImg, light_bgra, dark_bgra) -> GameImg:
+    """Replace white squares with light color and black squares with dark color."""
+    bgr = src_img.img[:, :, :3]
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    # white pixels (>128) -> light square color, dark pixels (<=128) -> dark square color
+    lb, lg, lr, _ = light_bgra
+    db, dg, dr, _ = dark_bgra
+    out_bgr = np.zeros_like(bgr)
+    mask = gray > 128
+    out_bgr[mask]  = (lb, lg, lr)
+    out_bgr[~mask] = (db, dg, dr)
+    result = GameImg()
+    result.img = cv2.cvtColor(out_bgr, cv2.COLOR_BGR2BGRA)
+    return result
+
+
 class BoardRenderer:
     def __init__(self, layout: Layout):
         self._layout = layout
-        self._board_image = GameImg.read(gfx_config.BOARD_IMAGE_PATH,
-                                          size=(gfx_config.BOARD_PX_W, gfx_config.BOARD_PX_H))
+        self._raw_board = GameImg.read(gfx_config.BOARD_IMAGE_PATH,
+                                       size=(gfx_config.BOARD_PX_W, gfx_config.BOARD_PX_H))
         cell = gfx_config.CELL_PX
         self._select_tile = GameImg.blank(cell, cell, gfx_config.COLOR_SELECTED)
-        self._legal_tile = GameImg.blank(cell, cell, gfx_config.COLOR_LEGAL_DOT)
+        self._legal_tile  = GameImg.blank(cell, cell, gfx_config.COLOR_LEGAL_DOT)
         self._scaled_cache_scale = None
 
     def _rescale_if_needed(self):
         if self._scaled_cache_scale == self._layout.scale:
             return
         self._scaled_cache_scale = self._layout.scale
-        self._scaled_board = self._board_image.resize(self._layout.board_px_w, self._layout.board_px_h)
+        resized = self._raw_board.resize(self._layout.board_px_w, self._layout.board_px_h)
+        light = gfx_config.COLOR_LIGHT_SQUARE
+        dark  = gfx_config.COLOR_DARK_SQUARE
+        self._scaled_board = _recolor_board(resized,
+                                            (light[2], light[1], light[0], light[3]),
+                                            (dark[2],  dark[1],  dark[0],  dark[3]))
         cell = max(1, int(gfx_config.CELL_PX * self._layout.scale))
         self._scaled_select = self._select_tile.resize(cell, cell)
-        self._scaled_legal = self._legal_tile.resize(cell, cell)
+        self._scaled_legal  = self._legal_tile.resize(cell, cell)
 
     def render(self, canvas, selected_cell=None, legal_cells=()):
         self._rescale_if_needed()

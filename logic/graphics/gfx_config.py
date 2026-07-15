@@ -31,13 +31,18 @@ BOARD_PX_H = CELL_PX * BOARD_ROWS
 # ---------------------------------------------------------------------------
 # Sidebar (score, moves log, player names) layout
 # ---------------------------------------------------------------------------
-SIDEBAR_PX_W = 320
-WINDOW_PX_W = BOARD_PX_W + SIDEBAR_PX_W
-WINDOW_PX_H = BOARD_PX_H
+SIDEBAR_PX_W = 220
+TOP_BAR_H = 60          # name + score bar above the board
+WINDOW_PX_W = BOARD_PX_W + 2 * SIDEBAR_PX_W
+WINDOW_PX_H = BOARD_PX_H + TOP_BAR_H
 
-PLAYER_NAME_BAR_H = 60
-SCOREBOARD_H = 90
-MOVES_LOG_H = WINDOW_PX_H - PLAYER_NAME_BAR_H - SCOREBOARD_H
+MOVES_LOG_H = BOARD_PX_H
+MOVES_LOG_ROW_H = 22
+MOVES_LOG_HEADER_H = 28
+
+# legacy aliases kept so nothing else breaks
+PLAYER_NAME_BAR_H = TOP_BAR_H
+SCOREBOARD_H = 0
 
 # ---------------------------------------------------------------------------
 # Animation
@@ -79,10 +84,13 @@ CAPTURE_FADE_MS = 400
 # Colors (RGBA) - only used for programmatically drawn overlays (highlights,
 # selection marker, text). Board/piece pixels come from sprite images.
 # ---------------------------------------------------------------------------
-COLOR_LIGHT_SQUARE = (240, 217, 181, 255)
-COLOR_DARK_SQUARE = (181, 136, 99, 255)
+COLOR_LIGHT_SQUARE = (237, 214, 176, 255)   # warm light tan
+COLOR_DARK_SQUARE  = (184, 111,  55, 255)   # medium warm brown
 COLOR_SELECTED = (246, 246, 105, 160)
 COLOR_LEGAL_DOT = (20, 20, 20, 120)
 COLOR_TEXT = (20, 20, 20, 255)
 COLOR_PANEL_BG = (30, 30, 30, 255)
 COLOR_PANEL_TEXT = (235, 235, 235, 255)
+
+
+WINDOW_TITLE = "Kung-Fu Chess"

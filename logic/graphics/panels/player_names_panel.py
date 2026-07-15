@@ -1,12 +1,16 @@
-from graphics import gfx_config
 from graphics.img_provider import GameImg
 
+
 class PlayerNamesPanel:
-    def __init__(self, white_name, black_name):
-        self.white_name, self.black_name = white_name, black_name
+    def __init__(self, white_name="White", black_name="Black"):
+        self.white_name = white_name
+        self.black_name = black_name
 
     def render(self, canvas, x, y, width, height):
-        panel = GameImg.blank(width, height, gfx_config.COLOR_PANEL_BG)
-        panel.put_text(f"White: {self.white_name}", x=8, y=8, font_size=16, color=gfx_config.COLOR_PANEL_TEXT[:3])
-        panel.put_text(f"Black: {self.black_name}", x=8, y=32, font_size=16, color=gfx_config.COLOR_PANEL_TEXT[:3])
+        """Render the top bar: player name centered, plus Black/White labels in sidebars."""
+        panel = GameImg.blank(width, height, (18, 18, 18, 255))
+        label = f"Name: {self.white_name}"
+        text_w = len(label) * 10
+        panel.put_text(label, x=(width - text_w) // 2, y=height - 12,
+                       font_size=0.7, color=(235, 235, 235), thickness=2)
         panel.draw_on(canvas, x, y)

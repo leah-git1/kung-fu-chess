@@ -1,41 +1,64 @@
-"""
-Observes the game (via GameEventSource) and keeps a bounded, human-readable
-move history. Rendering is just a stack of text lines drawn with put_text -
-no scrollable widget needed.
-"""
 from graphics import gfx_config
 from graphics.img_provider import GameImg
 from graphics.observers.game_events import GameObserver
 
-_MAX_VISIBLE_LINES = 12
-
 
 def _cell_name(cell) -> str:
     row, col = cell
-    file_letter = chr(ord("a") + col)
-    rank_number = 8 - row
-    return f"{file_letter}{rank_number}"
+    return f"{chr(ord('a') + col)}{8 - row}"
+
+
+def _fmt_time(ms: int) -> str:
+    total_s = ms // 1000
+    m, s = divmod(total_s, 60)
+    frac = (ms % 1000) // 10
+    return f"{m:02d}:{s:02d}.{frac:03d}"
 
 
 class MovesLog(GameObserver):
-    def __init__(self):
-        self._lines = []
+    def __init__(self, color: str):
+        self._color = color   # "w" or "b"
+        self._entries = []    # list of (time_str, move_str)
 
     def on_piece_moved(self, event) -> None:
-        piece = event.piece
-        text = f"{piece.color}{piece.piece_type.value} {_cell_name(event.origin)}-{_cell_name(event.destination)}"
-        self._lines.append(text)
+        if event.piece.color != self._color:
+            return
+        move = f"{_cell_name(event.origin)}-{_cell_name(event.destination)}"
+        self._entries.append((_fmt_time(event.elapsed_ms), move))
 
     def on_piece_captured(self, event) -> None:
-        captured = event.captured_piece
-        text = f"x {captured.color}{captured.piece_type.value} at {_cell_name(event.at_cell)}"
-        self._lines.append(text)
+        if event.by_piece and event.by_piece.color != self._color:
+            return
+        move = f"x{_cell_name(event.at_cell)}"
+        self._entries.append((_fmt_time(event.elapsed_ms), move))
 
     def render(self, canvas, x, y, width, height) -> None:
-        panel = GameImg.blank(width, height, gfx_config.COLOR_PANEL_BG)
-        line_height = 20
-        visible = self._lines[-_MAX_VISIBLE_LINES:]
-        for i, line in enumerate(visible):
-            panel.put_text(line, x=8, y=8 + i * line_height, font_size=14,
-                            color=gfx_config.COLOR_PANEL_TEXT[:3])
+        bg = (200, 200, 200, 255)
+        header_bg = (230, 230, 230, 255)
+        text_color = (20, 20, 20)
+        line_color = (160, 160, 160)
+
+        panel = GameImg.blank(width, height, bg)
+
+        # header
+        hh = gfx_config.MOVES_LOG_HEADER_H
+        header = GameImg.blank(width, hh, header_bg)
+        header.put_text("Time", x=8, y=hh - 8, font_size=0.45, color=text_color, thickness=1)
+        header.put_text("Move", x=width // 2 + 4, y=hh - 8, font_size=0.45, color=text_color, thickness=1)
+        header.draw_on(panel, 0, 0)
+
+        # divider line between columns
+        import cv2
+        cv2.line(panel.img, (width // 2, 0), (width // 2, height), (*line_color, 255), 1)
+        cv2.line(panel.img, (0, hh), (width, hh), (*line_color, 255), 1)
+
+        rh = gfx_config.MOVES_LOG_ROW_H
+        max_rows = (height - hh) // rh
+        visible = self._entries[-max_rows:]
+        for i, (t, m) in enumerate(visible):
+            ry = hh + i * rh
+            panel.put_text(t, x=4, y=ry + rh - 7, font_size=0.38, color=text_color, thickness=1)
+            panel.put_text(m, x=width // 2 + 4, y=ry + rh - 7, font_size=0.38, color=text_color, thickness=1)
+            cv2.line(panel.img, (0, ry + rh), (width, ry + rh), (*line_color, 255), 1)
+
         panel.draw_on(canvas, x, y)

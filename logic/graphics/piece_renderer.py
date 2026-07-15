@@ -45,10 +45,13 @@ class PieceRenderer:
         frame = state.current_frame(now_ms)
 
         cell_px = gfx_config.CELL_PX * self._layout.scale
-        x = self._layout.board_origin_x + int(col * cell_px)
-        y = self._layout.board_origin_y + int(row * cell_px)
-        size = max(1, int(cell_px))
-        frame.resize(size, size).draw_on(canvas, x, y)
+        cell_size = max(1, int(cell_px))
+        sprite_size = max(1, int(cell_px * 0.85))
+        offset = (cell_size - sprite_size) // 2
+
+        x = self._layout.board_origin_x + int(col * cell_px) + offset
+        y = self._layout.board_origin_y + int(row * cell_px) + offset
+        frame.resize(sprite_size, sprite_size).draw_on(canvas, x, y)
 
     @staticmethod
     def _move_duration(origin, destination):

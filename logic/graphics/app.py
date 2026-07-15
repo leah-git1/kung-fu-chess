@@ -28,7 +28,8 @@ bP bP bP bP bP bP bP bP
 wP wP wP wP wP wP wP wP
 wR wN wB wQ wK wB wN wR
 Commands:
-"""  
+"""
+
 
 class GraphicsApp:
     def __init__(self, white_name="White", black_name="Black"):
@@ -39,17 +40,20 @@ class GraphicsApp:
         self.piece_renderer = PieceRenderer(self.layout)
 
         self.event_source = GameEventSource()
-        self.moves_log = MovesLog()
+        self.moves_log_black = MovesLog("b")
+        self.moves_log_white = MovesLog("w")
         self.score_board = ScoreBoard()
-        self.event_source.add_observer(self.moves_log)
+        self.event_source.add_observer(self.moves_log_black)
+        self.event_source.add_observer(self.moves_log_white)
         self.event_source.add_observer(self.score_board)
+
         self.player_names_panel = PlayerNamesPanel(white_name, black_name)
 
         mapper = BoardMapper(gfx_config.CELL_PX)
         self.input_controller = InputController(mapper)
         self.input_adapter = InputAdapter(self.input_controller, self.layout, self.game)
 
-        self._window = WindowManager("Kung-Fu Chess", self.layout.window_px_w, self.layout.window_px_h)
+        self._window = WindowManager(gfx_config.WINDOW_TITLE, self.layout.window_px_w, self.layout.window_px_h)
         self._last_tick_ms = None
 
     def run(self):
@@ -78,19 +82,50 @@ class GraphicsApp:
             self.input_adapter.on_mouse_event(kind, event["x"], event["y"])
 
     def _render_frame(self, now_ms):
-        canvas = GameImg.blank(self.layout.window_px_w, self.layout.window_px_h, (18, 18, 18, 255))
+        W = self.layout.window_px_w
+        H = self.layout.window_px_h
+        sw = gfx_config.SIDEBAR_PX_W
+        top_h = gfx_config.TOP_BAR_H
+        log_h = gfx_config.MOVES_LOG_H
+
+        canvas = GameImg.blank(W, H, (18, 18, 18, 255))
+
+        # top bar: name centered, score centered below name
+        self.player_names_panel.render(canvas, 0, 0, W, top_h // 2)
+        self.score_board.render(canvas, 0, top_h // 2, W, top_h // 2)
+
+        # board
         self.board_renderer.render(canvas, selected_cell=self.input_controller.selected)
         self.piece_renderer.render(canvas, self.game, now_ms)
 
-        sx = self.layout.sidebar_origin_x
-        self.player_names_panel.render(canvas, sx, 0, gfx_config.SIDEBAR_PX_W, gfx_config.PLAYER_NAME_BAR_H)
-        self.score_board.render(canvas, sx, gfx_config.PLAYER_NAME_BAR_H, gfx_config.SIDEBAR_PX_W, gfx_config.SCOREBOARD_H)
-        self.moves_log.render(canvas, sx, gfx_config.PLAYER_NAME_BAR_H + gfx_config.SCOREBOARD_H,
-                               gfx_config.SIDEBAR_PX_W, gfx_config.MOVES_LOG_H)
-        canvas.show("Kung-Fu Chess")
+        # black panel (left) — header label + moves log
+        self._render_side_label(canvas, "Black", 0, top_h, sw)
+        self.moves_log_black.render(canvas, 0, top_h, sw, log_h)
+
+        # white panel (right) — header label + moves log
+        rx = self.layout.right_sidebar_x
+        self._render_side_label(canvas, "White", rx, top_h, sw)
+        self.moves_log_white.render(canvas, rx, top_h, sw, log_h)
+
+        canvas.show(window_name=gfx_config.WINDOW_TITLE)
+
+    def _render_side_label(self, canvas, label, x, y, width):
+        """Draw a small white-box label (e.g. 'Black' / 'White') above the moves table."""
+        import cv2
+        box_w, box_h = 100, 26
+        bx = x + (width - box_w) // 2
+        by = y - box_h - 4
+        if by < 0:
+            return
+        cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (255, 255, 255, 255), -1)
+        cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (180, 180, 180, 255), 1)
+        text_x = bx + (box_w - len(label) * 9) // 2
+        cv2.putText(canvas.img, label, (text_x, by + box_h - 6),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20, 20, 20, 255), 1, cv2.LINE_AA)
 
     def _now_ms(self):
         return int(time.monotonic() * 1000)
+
 
 if __name__ == "__main__":
     GraphicsApp().run()
