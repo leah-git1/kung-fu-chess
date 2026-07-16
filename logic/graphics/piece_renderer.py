@@ -27,11 +27,14 @@ class PieceRenderer:
     def _draw_active_motions(self, canvas, game, now_ms, jumping_ids):
         drawn = set()
         for motion in game.active_moves():
-            duration = self._move_duration(motion.origin, motion.destination)
-            start = motion.finish_time - duration
-            t = 0.0 if duration <= 0 else max(0.0, min(1.0, (now_ms - start) / duration))
-            row = motion.origin[0] + (motion.destination[0] - motion.origin[0]) * t
-            col = motion.origin[1] + (motion.destination[1] - motion.origin[1]) * t
+            actual = motion.actual_destination
+            full_duration = self._move_duration(motion.origin, motion.destination)
+            actual_duration = self._move_duration(motion.origin, actual)
+            start = motion.finish_time - full_duration
+            elapsed = now_ms - start
+            t = 0.0 if actual_duration <= 0 else max(0.0, min(1.0, elapsed / actual_duration))
+            row = motion.origin[0] + (actual[0] - motion.origin[0]) * t
+            col = motion.origin[1] + (actual[1] - motion.origin[1]) * t
             self._draw_piece_at(canvas, motion.piece, row, col, now_ms, is_jumping=False)
             drawn.add(id(motion.piece))
         for motion in game.active_jumps():

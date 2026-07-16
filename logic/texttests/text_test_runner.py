@@ -1,6 +1,7 @@
 import os
 from texttests.script_parser import ScriptParser
 from texttests.script_runner import ScriptRunner
+from utils import safe_join
 
 
 class TextTestRunner:
@@ -18,7 +19,7 @@ class TextTestRunner:
         print("Running text tests...\n")
 
         for filename in test_files:
-            path = os.path.join(folder, filename)
+            path = safe_join(folder, filename)
             result = self._run_file(filename, path)
             if result:
                 passed += 1

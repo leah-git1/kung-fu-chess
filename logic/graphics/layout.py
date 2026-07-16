@@ -1,4 +1,12 @@
+from typing import NamedTuple
 from graphics import gfx_config
+
+
+class CellRect(NamedTuple):
+    x: int
+    y: int
+    w: int
+    h: int
 
 class Layout:
     def __init__(self, window_px_w=gfx_config.WINDOW_PX_W, window_px_h=gfx_config.WINDOW_PX_H):
@@ -63,7 +71,7 @@ class Layout:
         uy = int(by * gfx_config.BOARD_PX_H / self.board_px_h)
         return ux, uy
 
-    def cell_to_screen_rect(self, row, col):
+    def cell_to_screen_rect(self, row, col) -> CellRect:
         x = self.board_origin_x + col * self.cell_size
         y = self.board_origin_y + row * self.cell_size
-        return x, y, self.cell_size, self.cell_size
+        return CellRect(x, y, self.cell_size, self.cell_size)

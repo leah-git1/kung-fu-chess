@@ -123,6 +123,14 @@ class RealTimeArbiter:
         # appended during resolution above.
         finishing_set = set(id(m) for m in finishing)
         self._motions = [m for m in self._motions if id(m) not in finishing_set]
+
+        in_flight_origins_live = {m.origin for m in self._motions if isinstance(m, MoveMotion)}
+        for motion in self._motions:
+            if isinstance(motion, MoveMotion):
+                motion.actual_destination = self._resolve_destination(
+                    motion, board, in_flight_origins_live
+                ) or motion.origin
+
         return captured, applied
 
     # ------------------------------------------------------------------
@@ -132,6 +140,7 @@ class RealTimeArbiter:
     def _resolve_move(self, motion: MoveMotion, board, captured: list, applied: list,
                       current_time: int, in_flight_origins: set) -> None:
         actual_dest = self._resolve_destination(motion, board, in_flight_origins)
+        motion.actual_destination = actual_dest if actual_dest is not None else motion.origin
         if actual_dest is None:
             motion.piece.state = PieceState.IDLE
             return

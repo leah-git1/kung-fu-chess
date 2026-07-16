@@ -1,4 +1,5 @@
 import os, sys, time
+import cv2
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from board.board_parser import BoardParser
@@ -36,32 +37,35 @@ Commands:
 
 class GraphicsApp(GameObserver):
     def __init__(self, white_name="White", black_name="Black"):
-        board = BoardParser().parse(_STARTING_POSITION.strip().splitlines())
-        self.game = Game(board)
         self.layout = Layout()
         self.board_renderer = BoardRenderer(self.layout)
-        self.piece_renderer = PieceRenderer(self.layout)
-
-        self.event_source = GameEventSource()
-        self.moves_log_black = MovesLog("b")
-        self.moves_log_white = MovesLog("w")
-        self.score_board = ScoreBoard()
-        self.event_source.add_observer(self.moves_log_black)
-        self.event_source.add_observer(self.moves_log_white)
-        self.event_source.add_observer(self.score_board)
-        self.event_source.add_observer(self)   # GraphicsApp itself listens for royal captures
-
         self.player_names_panel = PlayerNamesPanel(white_name, black_name)
-        self.game_over_panel = GameOverPanel()
-        self.start_game_panel = StartGamePanel()
-        self._winner_name = None
 
         mapper = BoardMapper(gfx_config.CELL_PX)
         self.input_controller = InputController(mapper)
-        self.input_adapter = InputAdapter(self.input_controller, self.layout, self.game)
+        self.input_adapter = InputAdapter(self.input_controller, self.layout, None)
 
         self._window = WindowManager(gfx_config.WINDOW_TITLE, self.layout.window_px_w, self.layout.window_px_h)
         self._last_tick_ms = None
+        self._init_game_state()
+
+    def _init_game_state(self):
+        board = BoardParser().parse(_STARTING_POSITION.strip().splitlines())
+        self.game = Game(board)
+        self.piece_renderer = PieceRenderer(self.layout)
+        self.moves_log_black = MovesLog("b")
+        self.moves_log_white = MovesLog("w")
+        self.score_board = ScoreBoard()
+        self.event_source = GameEventSource()
+        self.event_source.add_observer(self.moves_log_black)
+        self.event_source.add_observer(self.moves_log_white)
+        self.event_source.add_observer(self.score_board)
+        self.event_source.add_observer(self)
+        self.start_game_panel = StartGamePanel()
+        self.game_over_panel = GameOverPanel()
+        self._winner_name = None
+        self.input_controller.reset()
+        self.input_adapter._game = self.game
 
     def run(self):
         self._last_tick_ms = self._now_ms()
@@ -84,32 +88,13 @@ class GraphicsApp(GameObserver):
             if remaining > 0:
                 time.sleep(remaining / 1000)
 
-    def _reset(self):
-        board = BoardParser().parse(_STARTING_POSITION.strip().splitlines())
-        self.game = Game(board)
-        self.moves_log_black = MovesLog("b")
-        self.moves_log_white = MovesLog("w")
-        self.score_board = ScoreBoard()
-        self.event_source = GameEventSource()
-        self.event_source.add_observer(self.moves_log_black)
-        self.event_source.add_observer(self.moves_log_white)
-        self.event_source.add_observer(self.score_board)
-        self.event_source.add_observer(self)
-        self.input_controller.reset()
-        self.input_adapter._game = self.game
-        self.piece_renderer = PieceRenderer(self.layout)
-        self.start_game_panel = StartGamePanel()
-        self.game_over_panel = GameOverPanel()
-        self._winner_name = None
-
     def on_piece_captured(self, event):
-        """Detect royal capture to determine the winner."""
         p = event.captured_piece
-        if p and p.piece_type and p.piece_type.value in ("K",):
-            if p.color == "w":
-                self._winner_name = self.player_names_panel.black_name
-            else:
-                self._winner_name = self.player_names_panel.white_name
+        if p and p.piece_type and p.piece_type.value == "K":
+            self._winner_name = (
+                self.player_names_panel.black_name if p.color == "w"
+                else self.player_names_panel.white_name
+            )
 
     def on_piece_moved(self, event):
         pass
@@ -119,45 +104,30 @@ class GraphicsApp(GameObserver):
         if kind == "resize":
             self.input_adapter.on_window_resized(event["width"], event["height"])
         elif kind in ("left_click", "right_click"):
-            if not self.start_game_panel.done:
-                self.start_game_panel.on_click(event["x"], event["y"])
-                return
-            if self.game.game_over and self._winner_name:
-                action = self.game_over_panel.on_click(event["x"], event["y"])
-                if action == "new_game":
-                    self._reset()
-                elif action == "close":
-                    return "close"
-                return
-            self.input_adapter.on_mouse_event(kind, event["x"], event["y"])
+            return self._handle_click(event["x"], event["y"], kind)
+
+    def _handle_click(self, x, y, kind):
+        if not self.start_game_panel.done:
+            self.start_game_panel.on_click(x, y)
+            return
+        if self.game.game_over and self._winner_name:
+            action = self.game_over_panel.on_click(x, y)
+            if action == "new_game":
+                self._init_game_state()
+            elif action == "close":
+                return "close"
+            return
+        self.input_adapter.on_mouse_event(kind, x, y)
 
     def _render_frame(self, now_ms):
-        W = self.layout.window_px_w
-        H = self.layout.window_px_h
-        sw = gfx_config.SIDEBAR_PX_W
-        top_h = gfx_config.TOP_BAR_H
-        log_h = gfx_config.MOVES_LOG_H
-
+        W, H = self.layout.window_px_w, self.layout.window_px_h
         canvas = GameImg.blank(W, H, (15, 15, 15, 255))
 
-        # top bar: name only
-        self.player_names_panel.render(canvas, 0, 0, W, top_h)
-
-        # board
+        self.player_names_panel.render(canvas, 0, 0, W, gfx_config.TOP_BAR_H)
         self.board_renderer.render(canvas, selected_cell=self.input_controller.selected)
         self.piece_renderer.render(canvas, self.game, now_ms)
-
-        # black panel (left) — label + score + moves log
-        lx = self.layout.left_sidebar_x
-        self._render_side_label(canvas, self.player_names_panel.black_name, lx, top_h, sw)
-        self._render_score_row(canvas, "b", lx, top_h, sw)
-        self.moves_log_black.render(canvas, lx, top_h + 30, sw, log_h - 30)
-
-        # white panel (right) — label + score + moves log
-        rx = self.layout.right_sidebar_x
-        self._render_side_label(canvas, self.player_names_panel.white_name, rx, top_h, sw)
-        self._render_score_row(canvas, "w", rx, top_h, sw)
-        self.moves_log_white.render(canvas, rx, top_h + 30, sw, log_h - 30)
+        self._render_sidebar(canvas, "b", self.layout.left_sidebar_x, self.moves_log_black)
+        self._render_sidebar(canvas, "w", self.layout.right_sidebar_x, self.moves_log_white)
 
         if not self.start_game_panel.done:
             self.start_game_panel.render(canvas)
@@ -166,35 +136,36 @@ class GraphicsApp(GameObserver):
 
         canvas.show(window_name=gfx_config.WINDOW_TITLE)
 
-    def _render_score_row(self, canvas, color, x, y, width):
-        """Draw 'Score: N' in a light panel row just below the name label."""
-        import cv2
-        row_h = 30
-        # light panel background strip
-        cv2.rectangle(canvas.img, (x, y), (x + width, y + row_h),
+    def _render_sidebar(self, canvas, color, x, log):
+        sw = gfx_config.SIDEBAR_PX_W
+        top_h = gfx_config.TOP_BAR_H
+        log_h = gfx_config.MOVES_LOG_H
+        name = self.player_names_panel.black_name if color == "b" else self.player_names_panel.white_name
+
+        # name label (gold-bordered box above the top bar)
+        box_w, box_h = 130, 34
+        bx = x + (sw - box_w) // 2
+        by = top_h - box_h - 6
+        if by >= 0:
+            cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (20, 20, 20, 255), -1)
+            cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (30, 190, 210, 255), 2)
+            tx = bx + (box_w - len(name) * 11) // 2
+            cv2.putText(canvas.img, name, (tx, by + box_h - 9),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (220, 220, 220, 255), 1, cv2.LINE_AA)
+
+        # score row
+        cv2.rectangle(canvas.img, (x, top_h), (x + sw, top_h + 30),
                       (*gfx_config.COLOR_PANEL_BG[:3], 255), -1)
-        score = self.score_board._score[color]
-        label = f"Score: {score}"
-        text_w = len(label) * 10
-        tx = x + (width - text_w) // 2
-        cv2.putText(canvas.img, label, (tx, y + row_h - 8),
+        score_label = f"Score: {self.score_board._score[color]}"
+        tw = len(score_label) * 10
+        cv2.putText(canvas.img, score_label, (x + (sw - tw) // 2, top_h + 22),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (220, 220, 220, 255), 1, cv2.LINE_AA)
 
-    def _render_side_label(self, canvas, label, x, y, width):
-        """Draw a gold-bordered dark label ('Black' / 'White') above the moves table."""
-        import cv2
-        box_w, box_h = 130, 34
-        bx = x + (width - box_w) // 2
-        by = y - box_h - 6
-        if by < 0:
-            return
-        cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (20, 20, 20, 255), -1)
-        cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (30, 190, 210, 255), 2)
-        text_x = bx + (box_w - len(label) * 11) // 2
-        cv2.putText(canvas.img, label, (text_x, by + box_h - 9),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (220, 220, 220, 255), 1, cv2.LINE_AA)
+        # moves log
+        log.render(canvas, x, top_h + 30, sw, log_h - 30)
 
-    def _now_ms(self):
+    @staticmethod
+    def _now_ms():
         return int(time.monotonic() * 1000)
 
 

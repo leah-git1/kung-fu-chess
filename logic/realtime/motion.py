@@ -16,6 +16,7 @@ class MoveMotion(Motion):
         super().__init__(piece, finish_time)
         self.origin = origin
         self.destination = destination
+        self.actual_destination = destination  
 
 
 class JumpMotion(Motion):
