@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
 from graphics import gfx_config
+from graphics.panels.panel_action import PanelAction
 
 
 class GameOverPanel:
     """Semi-transparent overlay that announces the winner with New Game / Close buttons."""
 
     def __init__(self):
-        self._new_game_rect = None  # (x1, y1, x2, y2)
+        self._new_game_rect = None  
         self._close_rect = None
 
     def render(self, canvas, winner_name: str) -> None:
@@ -35,13 +36,11 @@ class GameOverPanel:
         cv2.putText(img, winner_text, ((W - ww) // 2, by + 100),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.2, (220, 220, 220, 255), 2, cv2.LINE_AA)
 
-        # buttons
         btn_w, btn_h = 180, 48
         gap = 20
         total_btns_w = btn_w * 2 + gap
         btn_y = by + box_h - btn_h - 20
 
-        # NEW GAME button (gold fill)
         ng_x = (W - total_btns_w) // 2
         self._new_game_rect = (ng_x, btn_y, ng_x + btn_w, btn_y + btn_h)
         cv2.rectangle(img, (ng_x, btn_y), (ng_x + btn_w, btn_y + btn_h), (*gold, 255), -1)
@@ -51,7 +50,6 @@ class GameOverPanel:
         cv2.putText(img, label, (ng_x + (btn_w - lw) // 2, btn_y + 32),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (20, 20, 20, 255), 2, cv2.LINE_AA)
 
-        # CLOSE button (dark fill, gold border)
         cl_x = ng_x + btn_w + gap
         self._close_rect = (cl_x, btn_y, cl_x + btn_w, btn_y + btn_h)
         cv2.rectangle(img, (cl_x, btn_y), (cl_x + btn_w, btn_y + btn_h), (20, 20, 20, 255), -1)
@@ -61,12 +59,11 @@ class GameOverPanel:
         cv2.putText(img, label2, (cl_x + (btn_w - lw2) // 2, btn_y + 32),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (*gold, 255), 2, cv2.LINE_AA)
 
-    def on_click(self, x, y) -> str | None:
-        """Returns 'new_game', 'close', or None."""
+    def on_click(self, x, y) -> PanelAction | None:
         if self._new_game_rect and self._hit(self._new_game_rect, x, y):
-            return "new_game"
+            return PanelAction.NEW_GAME
         if self._close_rect and self._hit(self._close_rect, x, y):
-            return "close"
+            return PanelAction.CLOSE
         return None
 
     @staticmethod

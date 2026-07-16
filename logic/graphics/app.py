@@ -19,6 +19,7 @@ from graphics.observers.score_board import ScoreBoard
 from graphics.panels.player_names_panel import PlayerNamesPanel
 from graphics.panels.game_over_panel import GameOverPanel
 from graphics.panels.start_game_panel import StartGamePanel
+from graphics.panels.panel_action import PanelAction
 from graphics.piece_renderer import PieceRenderer
 
 _STARTING_POSITION = """
@@ -112,9 +113,9 @@ class GraphicsApp(GameObserver):
             return
         if self.game.game_over and self._winner_name:
             action = self.game_over_panel.on_click(x, y)
-            if action == "new_game":
+            if action == PanelAction.NEW_GAME:
                 self._init_game_state()
-            elif action == "close":
+            elif action == PanelAction.CLOSE:
                 return "close"
             return
         self.input_adapter.on_mouse_event(kind, x, y)

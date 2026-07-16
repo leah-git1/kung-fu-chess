@@ -57,15 +57,7 @@ TARGET_FPS = 30
 FRAME_TIME_MS = 1000 // TARGET_FPS
 DEFAULT_SPRITE_FPS = 12
 
-# Piece state -> sprite folder name (must match the folder structure under
-# assets/pieces/<piece_key>/states/<state_folder>/, per the CTD26 asset repo).
-#
-# board.piece.PieceState (idle/moving/jumping/short_rest/long_rest/captured)
-# now names its members after the exact same folders, so this is a 1:1
-# identity map:
-#   IDLE -> MOVING -> LONG_REST  -> IDLE   (after a move)
-#   IDLE -> JUMPING -> SHORT_REST -> IDLE  (after a jump)
-#   - CAPTURED has no dedicated folder in the asset repo, so it reuses "idle"
+
 STATE_TO_FOLDER = {
     "idle": "idle",
     "moving": "move",
@@ -80,20 +72,20 @@ JUMP_FOLDER = "jump"
 # Colors (RGBA) - only used for programmatically drawn overlays (highlights,
 # selection marker, text). Board/piece pixels come from sprite images.
 # ---------------------------------------------------------------------------
-COLOR_LIGHT_SQUARE = (200, 185, 155, 255)   # darker warm tan
-COLOR_DARK_SQUARE  = (100,  60,  20, 255)   # deep dark brown
+COLOR_LIGHT_SQUARE = (200, 185, 155, 255)  
+COLOR_DARK_SQUARE  = (100,  60,  20, 255)  
 COLOR_SELECTED = (246, 246, 105, 160)
 COLOR_LEGAL_DOT = (20, 20, 20, 120)
 COLOR_TEXT = (220, 220, 220, 255)
-COLOR_PANEL_BG    = ( 30,  30,  30, 255)   # near-black panel background
-COLOR_PANEL_TEXT  = (220, 220, 220, 255)   # light text on dark bg
-COLOR_PANEL_HEADER= ( 45,  45,  45, 255)   # slightly lighter header row
-COLOR_PANEL_LINE  = ( 70,  70,  70, 255)   # subtle divider lines
-COLOR_GOLD        = ( 30, 190, 210, 255)   # gold accent (BGR: 30,190,210)
+COLOR_PANEL_BG    = ( 30,  30,  30, 255)   
+COLOR_PANEL_TEXT  = (220, 220, 220, 255)   
+COLOR_PANEL_HEADER= ( 45,  45,  45, 255)   
+COLOR_PANEL_LINE  = ( 70,  70,  70, 255)   
+COLOR_GOLD        = ( 30, 190, 210, 255)   
 
 # Cooldown overlay drawn behind a piece during LONG_REST / SHORT_REST
-COOLDOWN_BAR_COLOR       = ( 30, 210, 240, 160)  # gold/yellow  – after move  (BGR)
-COOLDOWN_BAR_COLOR_SHORT = (180,  80, 255, 160)  # purple/violet – after jump (BGR)
+COOLDOWN_BAR_COLOR       = ( 30, 210, 240, 160)  
+COOLDOWN_BAR_COLOR_SHORT = (180,  80, 255, 160)  
 MOVE_DURATION_PER_CELL = logic_config.MOVE_DURATION_PER_CELL
 
 
