@@ -22,7 +22,7 @@ FONT_PATH = os.path.join(ASSETS_DIR, "ui", "font.ttf")
 # ---------------------------------------------------------------------------
 # Board geometry (derived from the logic layer so the two never disagree)
 # ---------------------------------------------------------------------------
-CELL_PX = logic_config.CELL_SIZE          # pixel size of one board cell at 1x scale
+CELL_PX = logic_config.CELL_SIZE          
 BOARD_ROWS = 8
 BOARD_COLS = 8
 BOARD_PX_W = CELL_PX * BOARD_COLS
@@ -32,13 +32,13 @@ BOARD_PX_H = CELL_PX * BOARD_ROWS
 # Sidebar (score, moves log, player names) layout
 # ---------------------------------------------------------------------------
 SIDEBAR_PX_W = 220
-SIDEBAR_MARGIN = 18          # gap between sidebar and window edge
-BOARD_SIDE_GAP = 24          # gap between board label block and sidebar
-BOARD_LABEL_MARGIN = 26      # space reserved on all 4 sides for rank/file labels
-BOARD_DISPLAY_SCALE = 0.80   # shrink the board relative to available space
-TOP_BAR_H = 80               # name row + score row above the board
-TOP_NAME_H = 44              # height of the "Black vs White" title row
-TOP_SCORE_H = 36             # height of the "Score: Even" row
+SIDEBAR_MARGIN = 18          
+BOARD_SIDE_GAP = 24          
+BOARD_LABEL_MARGIN = 26      
+BOARD_DISPLAY_SCALE = 0.80   
+TOP_BAR_H = 80               
+TOP_NAME_H = 44              
+TOP_SCORE_H = 36            
 WINDOW_PX_W = BOARD_PX_W + 2 * SIDEBAR_PX_W + 2 * BOARD_SIDE_GAP + 2 * SIDEBAR_MARGIN + 160
 WINDOW_PX_H = BOARD_PX_H + TOP_BAR_H + 80
 
@@ -94,8 +94,6 @@ COLOR_GOLD        = ( 30, 190, 210, 255)   # gold accent (BGR: 30,190,210)
 # Cooldown overlay drawn behind a piece during LONG_REST / SHORT_REST
 COOLDOWN_BAR_COLOR       = ( 30, 210, 240, 160)  # gold/yellow  – after move  (BGR)
 COOLDOWN_BAR_COLOR_SHORT = (180,  80, 255, 160)  # purple/violet – after jump (BGR)
-LONG_REST_DURATION  = logic_config.LONG_REST_DURATION
-SHORT_REST_DURATION = logic_config.SHORT_REST_DURATION
 MOVE_DURATION_PER_CELL = logic_config.MOVE_DURATION_PER_CELL
 
 

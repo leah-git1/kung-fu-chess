@@ -20,6 +20,7 @@ class RealTimeArbiter:
 
     def __init__(self):
         self._motions: list = []
+        self._current_time: int = 0
 
     # ------------------------------------------------------------------
     # Mutation — called by Game after validation
@@ -60,6 +61,23 @@ class RealTimeArbiter:
         """Read-only snapshot of in-flight JumpMotions, for rendering only."""
         return [m for m in self._motions if isinstance(m, JumpMotion)]
 
+    def cooldown_progress(self, piece) -> tuple | None:
+        """Returns (progress 0→1, rest_type 'long'|'short') for a resting piece, or None."""
+        for m in self._motions:
+            if isinstance(m, CooldownMotion) and m.piece is piece:
+                state = piece.state.value
+                if state == "long_rest":
+                    duration = config.LONG_REST_DURATION
+                elif state == "short_rest":
+                    duration = config.SHORT_REST_DURATION
+                else:
+                    return None
+                elapsed = duration - (m.finish_time - self._current_time)
+                progress = max(0.0, min(1.0, elapsed / duration))
+                rest_type = "long" if state == "long_rest" else "short"
+                return progress, rest_type
+        return None
+
     # ------------------------------------------------------------------
     # Time advancement — resolves finished motions, returns events
     # ------------------------------------------------------------------
@@ -77,6 +95,7 @@ class RealTimeArbiter:
         """
         captured = []
         applied = []
+        self._current_time = current_time
 
         finishing = [m for m in self._motions if m.is_finished(current_time)]
         still_active = [m for m in self._motions if not m.is_finished(current_time)]

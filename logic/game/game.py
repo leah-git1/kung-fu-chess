@@ -66,6 +66,9 @@ class Game:
 
     def active_jumps(self) -> list:
         return self._arbiter.active_jumps()
+
+    def cooldown_progress(self, piece) -> tuple | None:
+        return self._arbiter.cooldown_progress(piece)
         
     def get_piece_at(self, cell: tuple):
         return self._board.get_piece(*cell)

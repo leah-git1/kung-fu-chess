@@ -4,25 +4,25 @@ from graphics.sprites.sprite_loader import SpriteLoader
 import cv2
 import numpy as np
 
+
 class PieceRenderer:
     def __init__(self, layout, loader=None):
         self._layout = layout
         self._loader = loader or SpriteLoader()
-        self._states = {}          # id(piece) -> AnimationState
-        self._rest_started = {}    # id(piece) -> now_ms when LONG_REST began
+        self._states = {}   # id(piece) -> AnimationState
 
     def render(self, canvas, game, now_ms):
         board_grid = game.snapshot()
         jumping_ids = {id(m.piece) for m in game.active_jumps()}
         moving_ids = self._draw_active_motions(canvas, game, now_ms, jumping_ids)
-        self._draw_static_pieces(canvas, board_grid, moving_ids | jumping_ids, now_ms)
+        self._draw_static_pieces(canvas, board_grid, moving_ids | jumping_ids, game, now_ms)
 
-    def _draw_static_pieces(self, canvas, board_grid, skip_ids, now_ms):
+    def _draw_static_pieces(self, canvas, board_grid, skip_ids, game, now_ms):
         for r, row in enumerate(board_grid):
             for c, piece in enumerate(row):
                 if piece is None or id(piece) in skip_ids:
                     continue
-                self._draw_piece_at(canvas, piece, r, c, now_ms, is_jumping=False)
+                self._draw_piece_at(canvas, piece, r, c, game, now_ms, is_jumping=False)
 
     def _draw_active_motions(self, canvas, game, now_ms, jumping_ids):
         drawn = set()
@@ -35,14 +35,14 @@ class PieceRenderer:
             t = 0.0 if actual_duration <= 0 else max(0.0, min(1.0, elapsed / actual_duration))
             row = motion.origin[0] + (actual[0] - motion.origin[0]) * t
             col = motion.origin[1] + (actual[1] - motion.origin[1]) * t
-            self._draw_piece_at(canvas, motion.piece, row, col, now_ms, is_jumping=False)
+            self._draw_piece_at(canvas, motion.piece, row, col, game, now_ms, is_jumping=False)
             drawn.add(id(motion.piece))
         for motion in game.active_jumps():
-            self._draw_piece_at(canvas, motion.piece, motion.cell[0], motion.cell[1], now_ms, is_jumping=True)
+            self._draw_piece_at(canvas, motion.piece, motion.cell[0], motion.cell[1], game, now_ms, is_jumping=True)
             drawn.add(id(motion.piece))
         return drawn
 
-    def _draw_piece_at(self, canvas, piece, row, col, now_ms, is_jumping):
+    def _draw_piece_at(self, canvas, piece, row, col, game, now_ms, is_jumping):
         state = self._states.setdefault(id(piece), AnimationState(piece, self._loader))
         folder = gfx_config.JUMP_FOLDER if is_jumping else gfx_config.STATE_TO_FOLDER[piece.state_name]
         state.update(piece.sprite_key, folder, now_ms)
@@ -52,43 +52,28 @@ class PieceRenderer:
         cell_x = self._layout.board_origin_x + int(col * cs)
         cell_y = self._layout.board_origin_y + int(row * cs)
 
-        self._draw_cooldown_bar(canvas, piece, now_ms, cell_x, cell_y, cs)
+        self._draw_cooldown_bar(canvas, piece, game, cell_x, cell_y, cs)
         frame.resize(cs, cs).draw_on(canvas, cell_x, cell_y)
 
-    def _draw_cooldown_bar(self, canvas, piece, now_ms, cell_x, cell_y, cell_size):
-        pid = id(piece)
-        state = piece.state_name
-        if state == "long_rest":
-            duration = gfx_config.LONG_REST_DURATION
-            color = gfx_config.COOLDOWN_BAR_COLOR
-        elif state == "short_rest":
-            duration = gfx_config.SHORT_REST_DURATION
-            color = gfx_config.COOLDOWN_BAR_COLOR_SHORT
-        else:
-            self._rest_started.pop(pid, None)
+    def _draw_cooldown_bar(self, canvas, piece, game, cell_x, cell_y, cell_size):
+        result = game.cooldown_progress(piece)
+        if result is None:
             return
-
-        if pid not in self._rest_started:
-            self._rest_started[pid] = now_ms
-        elapsed = now_ms - self._rest_started[pid]
-        progress = max(0.0, min(1.0, elapsed / duration))
+        progress, rest_type = result
+        color = gfx_config.COOLDOWN_BAR_COLOR if rest_type == "long" else gfx_config.COOLDOWN_BAR_COLOR_SHORT
 
         bar_h = int(cell_size * (1.0 - progress))
         if bar_h <= 0:
             return
 
-        cx = cell_x
-        cy = cell_y + (cell_size - bar_h)
-
         b, g, r, a = color
         alpha = a / 255.0
-
         img = canvas.img
         H, W = img.shape[:2]
-        x1 = max(0, cx)
-        y1 = max(0, cy)
-        x2 = min(W, cx + cell_size)
-        y2 = min(H, cy + bar_h)
+        x1 = max(0, cell_x)
+        y1 = max(0, cell_y + (cell_size - bar_h))
+        x2 = min(W, cell_x + cell_size)
+        y2 = min(H, cell_y + cell_size)
         if x2 <= x1 or y2 <= y1:
             return
 
@@ -100,5 +85,5 @@ class PieceRenderer:
 
     @staticmethod
     def _move_duration(origin, destination):
-        return max(abs(destination[0]-origin[0]), abs(destination[1]-origin[1])) \
+        return max(abs(destination[0] - origin[0]), abs(destination[1] - origin[1])) \
             * gfx_config.MOVE_DURATION_PER_CELL
