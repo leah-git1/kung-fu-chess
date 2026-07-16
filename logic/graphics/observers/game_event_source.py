@@ -1,4 +1,3 @@
-from board.piece import Piece
 from graphics.observers.game_events import GameSubject, PieceMovedEvent, PieceCapturedEvent
 import time
 
@@ -20,14 +19,20 @@ class GameEventSource(GameSubject):
 
     @staticmethod
     def _index(grid):
-        return {id(p): (p, (r, c)) for r, row in enumerate(grid) for c, p in enumerate(row) if p is not Piece.EMPTY}
+        return {id(p): (p, (r, c))
+                for r, row in enumerate(grid)
+                for c, p in enumerate(row) if p is not None}
 
     def _diff(self, prev, curr):
         ms = self._elapsed()
         for pid, (piece, prev_cell) in prev.items():
             if pid in curr:
                 if curr[pid][1] != prev_cell:
-                    self.notify_piece_moved(PieceMovedEvent(piece, prev_cell, curr[pid][1], ms))
+                    self.notify_piece_moved(PieceMovedEvent(
+                        piece, prev_cell, curr[pid][1], ms,
+                        piece_name=piece.sprite_key[1]))
             else:
                 by_piece = next((p2 for p2, c2 in curr.values() if c2 == prev_cell), None)
-                self.notify_piece_captured(PieceCapturedEvent(piece, prev_cell, by_piece, ms))
+                self.notify_piece_captured(PieceCapturedEvent(
+                    piece, prev_cell, by_piece, ms,
+                    piece_value=piece.value))

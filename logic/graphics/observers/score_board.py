@@ -1,5 +1,4 @@
 import cv2
-import config as logic_config
 from graphics.observers.game_events import GameObserver
 
 
@@ -8,9 +7,8 @@ class ScoreBoard(GameObserver):
         self._score = {"w": 0, "b": 0}
 
     def on_piece_captured(self, event):
-        value = logic_config.PIECE_VALUES.get(event.captured_piece.piece_type.value, 0)
         if event.by_piece and event.by_piece.color in self._score:
-            self._score[event.by_piece.color] += value
+            self._score[event.by_piece.color] += event.piece_value
 
     def render_for(self, canvas, color, x, y, width, height):
         """Render score for a single player (color='w' or 'b') at the given position."""

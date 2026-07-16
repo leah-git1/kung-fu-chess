@@ -104,6 +104,9 @@ COLOR_GOLD        = ( 30, 190, 210, 255)   # gold accent (BGR: 30,190,210)
 # Cooldown overlay drawn behind a piece during LONG_REST / SHORT_REST
 COOLDOWN_BAR_COLOR       = ( 30, 210, 240, 160)  # gold/yellow  – after move  (BGR)
 COOLDOWN_BAR_COLOR_SHORT = (180,  80, 255, 160)  # purple/violet – after jump (BGR)
+LONG_REST_DURATION  = logic_config.LONG_REST_DURATION
+SHORT_REST_DURATION = logic_config.SHORT_REST_DURATION
+MOVE_DURATION_PER_CELL = logic_config.MOVE_DURATION_PER_CELL
 
 
 WINDOW_TITLE = "Kung-Fu Chess"

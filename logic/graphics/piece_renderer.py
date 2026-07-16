@@ -1,8 +1,6 @@
-from board.piece import Piece, PieceState
 from graphics import gfx_config
 from graphics.sprites.animation_state_machine import AnimationState
 from graphics.sprites.sprite_loader import SpriteLoader
-import config as logic_config
 import cv2
 import numpy as np
 
@@ -22,7 +20,7 @@ class PieceRenderer:
     def _draw_static_pieces(self, canvas, board_grid, skip_ids, now_ms):
         for r, row in enumerate(board_grid):
             for c, piece in enumerate(row):
-                if piece is Piece.EMPTY or id(piece) in skip_ids:
+                if piece is None or id(piece) in skip_ids:
                     continue
                 self._draw_piece_at(canvas, piece, r, c, now_ms, is_jumping=False)
 
@@ -43,9 +41,8 @@ class PieceRenderer:
 
     def _draw_piece_at(self, canvas, piece, row, col, now_ms, is_jumping):
         state = self._states.setdefault(id(piece), AnimationState(piece, self._loader))
-        piece_key = self._loader.piece_key(piece)
-        folder = gfx_config.JUMP_FOLDER if is_jumping else gfx_config.STATE_TO_FOLDER[piece.state.value]
-        state.update(piece_key, folder, now_ms)
+        folder = gfx_config.JUMP_FOLDER if is_jumping else gfx_config.STATE_TO_FOLDER[piece.state_name]
+        state.update(piece.sprite_key, folder, now_ms)
         frame = state.current_frame(now_ms)
 
         cs = self._layout.cell_size
@@ -56,13 +53,13 @@ class PieceRenderer:
         frame.resize(cs, cs).draw_on(canvas, cell_x, cell_y)
 
     def _draw_cooldown_bar(self, canvas, piece, now_ms, cell_x, cell_y, cell_size):
-        """Fill the whole cell with a colored overlay that shrinks downward during rest states."""
         pid = id(piece)
-        if piece.state == PieceState.LONG_REST:
-            duration = logic_config.LONG_REST_DURATION
+        state = piece.state_name
+        if state == "long_rest":
+            duration = gfx_config.LONG_REST_DURATION
             color = gfx_config.COOLDOWN_BAR_COLOR
-        elif piece.state == PieceState.SHORT_REST:
-            duration = logic_config.SHORT_REST_DURATION
+        elif state == "short_rest":
+            duration = gfx_config.SHORT_REST_DURATION
             color = gfx_config.COOLDOWN_BAR_COLOR_SHORT
         else:
             self._rest_started.pop(pid, None)
@@ -101,4 +98,4 @@ class PieceRenderer:
     @staticmethod
     def _move_duration(origin, destination):
         return max(abs(destination[0]-origin[0]), abs(destination[1]-origin[1])) \
-            * logic_config.MOVE_DURATION_PER_CELL
+            * gfx_config.MOVE_DURATION_PER_CELL

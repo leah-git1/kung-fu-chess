@@ -58,7 +58,8 @@ class Game:
         self._tick()
 
     def snapshot(self) -> list:
-        return list(self._board.rows_iter())
+        return [[None if p is Piece.EMPTY else p for p in row]
+                for row in self._board.rows_iter()]
 
     def active_moves(self) -> list:
         return self._arbiter.active_moves()

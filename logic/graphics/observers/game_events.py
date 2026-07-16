@@ -4,10 +4,12 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class PieceMovedEvent:
     piece: object; origin: tuple; destination: tuple; elapsed_ms: int = 0
+    piece_name: str = ""      # e.g. "P", "K" — graphics uses this without importing model
 
 @dataclass(frozen=True)
 class PieceCapturedEvent:
     captured_piece: object; at_cell: tuple; by_piece: object = None; elapsed_ms: int = 0
+    piece_value: int = 0      # point value — graphics uses this without importing config
 
 class GameObserver(ABC):
     def on_piece_moved(self, event): pass

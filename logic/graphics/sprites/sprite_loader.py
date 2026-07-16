@@ -32,4 +32,4 @@ class SpriteLoader:
 
     @staticmethod
     def piece_key(piece):
-        return f"{piece.color.lower()}{piece.piece_type.value.upper()}"
+        return piece.sprite_key

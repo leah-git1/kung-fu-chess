@@ -1,6 +1,6 @@
 class AnimationState:
     def __init__(self, piece, loader):
-        self._piece_key = loader.piece_key(piece)
+        self._piece_key = piece.sprite_key
         self._loader = loader
         self._current_folder = None
         self._state_entered_at_ms = 0

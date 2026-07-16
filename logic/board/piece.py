@@ -46,6 +46,18 @@ class Piece:
             return False
         return self.color == other.color
 
+    @property
+    def sprite_key(self) -> str:
+        return f"{self.color}{self.piece_type.value}"
+
+    @property
+    def state_name(self) -> str:
+        return self.state.value
+
+    @property
+    def value(self) -> int:
+        return config.PIECE_VALUES.get(self.piece_type.value, 0)
+
     def __repr__(self):
         if self is Piece.EMPTY:
             return config.EMPTY_CELL
