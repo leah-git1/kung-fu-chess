@@ -1,3 +1,4 @@
+import cv2
 from graphics import gfx_config
 from graphics.img_provider import GameImg
 
@@ -10,7 +11,7 @@ class PlayerNamesPanel:
     def render(self, canvas, x, y, width, height):
         panel = GameImg.blank(width, height, gfx_config.COLOR_PANEL_BG)
         label = f"{self.black_name} vs {self.white_name}"
-        text_w = len(label) * 14
+        (text_w, _), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
         panel.put_text(label, x=(width - text_w) // 2, y=height - 10,
                        font_size=0.9, color=gfx_config.COLOR_GOLD[:3], thickness=2)
         panel.draw_on(canvas, x, y)

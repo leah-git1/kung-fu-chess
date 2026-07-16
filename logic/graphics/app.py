@@ -65,6 +65,7 @@ class GraphicsApp(GameObserver):
         self.start_game_panel = StartGamePanel()
         self.game_over_panel = GameOverPanel()
         self._winner_name = None
+        self._game_started = False
         self.input_controller.reset()
         self.input_adapter._game = self.game
 
@@ -80,7 +81,7 @@ class GraphicsApp(GameObserver):
                     self._window.close()
                     return
 
-            if self.start_game_panel.done:
+            if self._game_started:
                 self.game.advance_time(elapsed)
                 self.event_source.poll(self.game)
             self._render_frame(self.game.current_time)
@@ -108,8 +109,9 @@ class GraphicsApp(GameObserver):
             return self._handle_click(event["x"], event["y"], kind)
 
     def _handle_click(self, x, y, kind):
-        if not self.start_game_panel.done:
-            self.start_game_panel.on_click(x, y)
+        if not self._game_started:
+            if self.start_game_panel.on_click(x, y) == PanelAction.START:
+                self._game_started = True
             return
         if self.game.game_over and self._winner_name:
             action = self.game_over_panel.on_click(x, y)
@@ -130,7 +132,7 @@ class GraphicsApp(GameObserver):
         self._render_sidebar(canvas, "b", self.layout.left_sidebar_x, self.moves_log_black)
         self._render_sidebar(canvas, "w", self.layout.right_sidebar_x, self.moves_log_white)
 
-        if not self.start_game_panel.done:
+        if not self._game_started:
             self.start_game_panel.render(canvas)
         elif self.game.game_over and self._winner_name:
             self.game_over_panel.render(canvas, self._winner_name)

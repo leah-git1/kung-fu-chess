@@ -8,8 +8,8 @@ class StartGamePanel:
     """Overlay with a START GAME button. Clicking anywhere on the button starts the game."""
 
     def __init__(self):
-        self.done = False
         self._btn_rect = None   
+        
     def render(self, canvas) -> None:
         img = canvas.img
         H, W = img.shape[:2]
@@ -50,6 +50,5 @@ class StartGamePanel:
             return None
         x1, y1, x2, y2 = self._btn_rect
         if x1 <= screen_x <= x2 and y1 <= screen_y <= y2:
-            self.done = True
             return PanelAction.START
         return None
