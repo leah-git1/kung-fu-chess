@@ -31,13 +31,16 @@ BOARD_PX_H = CELL_PX * BOARD_ROWS
 # ---------------------------------------------------------------------------
 # Sidebar (score, moves log, player names) layout
 # ---------------------------------------------------------------------------
-SIDEBAR_PX_W = 240
-BOARD_SIDE_GAP = 20     # gap between board and each side panel
-TOP_BAR_H = 80          # name row + score row above the board
-TOP_NAME_H = 44         # height of the "Black vs White" title row
-TOP_SCORE_H = 36        # height of the "Score: Even" row
-WINDOW_PX_W = BOARD_PX_W + 2 * SIDEBAR_PX_W + 2 * BOARD_SIDE_GAP
-WINDOW_PX_H = BOARD_PX_H + TOP_BAR_H
+SIDEBAR_PX_W = 220
+SIDEBAR_MARGIN = 18          # gap between sidebar and window edge
+BOARD_SIDE_GAP = 24          # gap between board label block and sidebar
+BOARD_LABEL_MARGIN = 26      # space reserved on all 4 sides for rank/file labels
+BOARD_DISPLAY_SCALE = 0.80   # shrink the board relative to available space
+TOP_BAR_H = 80               # name row + score row above the board
+TOP_NAME_H = 44              # height of the "Black vs White" title row
+TOP_SCORE_H = 36             # height of the "Score: Even" row
+WINDOW_PX_W = BOARD_PX_W + 2 * SIDEBAR_PX_W + 2 * BOARD_SIDE_GAP + 2 * SIDEBAR_MARGIN + 160
+WINDOW_PX_H = BOARD_PX_H + TOP_BAR_H + 80
 
 MOVES_LOG_H = BOARD_PX_H
 MOVES_LOG_ROW_H = 28

@@ -113,24 +113,24 @@ class GraphicsApp(GameObserver):
 
         canvas = GameImg.blank(W, H, (15, 15, 15, 255))
 
-        # top bar: "Black vs White" title, then score below it
-        name_h  = gfx_config.TOP_NAME_H
-        score_h = gfx_config.TOP_SCORE_H
-        self.player_names_panel.render(canvas, 0, 0, W, name_h)
-        self.score_board.render(canvas, 0, name_h, W, score_h)
+        # top bar: name only
+        self.player_names_panel.render(canvas, 0, 0, W, top_h)
 
         # board
         self.board_renderer.render(canvas, selected_cell=self.input_controller.selected)
         self.piece_renderer.render(canvas, self.game, now_ms)
 
-        # black panel (left) — header label + moves log
-        self._render_side_label(canvas, self.player_names_panel.black_name, 0, top_h, sw)
-        self.moves_log_black.render(canvas, 0, top_h, sw, log_h)
+        # black panel (left) — label + score + moves log
+        lx = self.layout.left_sidebar_x
+        self._render_side_label(canvas, self.player_names_panel.black_name, lx, top_h, sw)
+        self._render_score_row(canvas, "b", lx, top_h, sw)
+        self.moves_log_black.render(canvas, lx, top_h + 30, sw, log_h - 30)
 
-        # white panel (right) — header label + moves log
+        # white panel (right) — label + score + moves log
         rx = self.layout.right_sidebar_x
         self._render_side_label(canvas, self.player_names_panel.white_name, rx, top_h, sw)
-        self.moves_log_white.render(canvas, rx, top_h, sw, log_h)
+        self._render_score_row(canvas, "w", rx, top_h, sw)
+        self.moves_log_white.render(canvas, rx, top_h + 30, sw, log_h - 30)
 
         canvas.show(window_name=gfx_config.WINDOW_TITLE)
 
@@ -140,6 +140,20 @@ class GraphicsApp(GameObserver):
         elif self.game.game_over and self._winner_name:
             self.game_over_panel.render(canvas, self._winner_name)
             canvas.show(window_name=gfx_config.WINDOW_TITLE)
+
+    def _render_score_row(self, canvas, color, x, y, width):
+        """Draw 'Score: N' in a light panel row just below the name label."""
+        import cv2
+        row_h = 30
+        # light panel background strip
+        cv2.rectangle(canvas.img, (x, y), (x + width, y + row_h),
+                      (*gfx_config.COLOR_PANEL_BG[:3], 255), -1)
+        score = self.score_board._score[color]
+        label = f"Score: {score}"
+        text_w = len(label) * 10
+        tx = x + (width - text_w) // 2
+        cv2.putText(canvas.img, label, (tx, y + row_h - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (220, 220, 220, 255), 1, cv2.LINE_AA)
 
     def _render_side_label(self, canvas, label, x, y, width):
         """Draw a gold-bordered dark label ('Black' / 'White') above the moves table."""

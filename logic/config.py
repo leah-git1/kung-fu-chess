@@ -8,7 +8,7 @@ EMPTY_CELL = "."
 # Animation & Timing
 # ============================================================================
 CELL_SIZE = 100
-MOVE_DURATION_PER_CELL = 200
+MOVE_DURATION_PER_CELL = 2000
 JUMP_DURATION = 1000
 
 

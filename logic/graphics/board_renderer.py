@@ -41,7 +41,8 @@ class BoardRenderer:
         self._scaled_board = _recolor_board(resized,
                                             (light[2], light[1], light[0], light[3]),
                                             (dark[2],  dark[1],  dark[0],  dark[3]))
-        cell = max(1, int(gfx_config.CELL_PX * self._layout.scale))
+        # cell size derived from actual rendered board width — single source of truth
+        cell = max(1, self._layout.board_px_w // gfx_config.BOARD_COLS)
         self._scaled_select = self._select_tile.resize(cell, cell)
         self._scaled_legal  = self._legal_tile.resize(cell, cell)
 
@@ -54,3 +55,38 @@ class BoardRenderer:
         for cell in legal_cells:
             x, y, _, _ = self._layout.cell_to_screen_rect(*cell)
             self._scaled_legal.draw_on(canvas, x, y)
+        self._draw_coordinates(canvas)
+
+    def _draw_coordinates(self, canvas):
+        lm = gfx_config.BOARD_LABEL_MARGIN
+        ox = self._layout.board_origin_x
+        oy = self._layout.board_origin_y
+        lox = self._layout.label_origin_x
+        loy = self._layout.label_origin_y
+        # use same cell size as everything else
+        cell = self._layout.board_px_w // gfx_config.BOARD_COLS
+        bw = self._layout.board_px_w
+        bh = self._layout.board_px_h
+        color = (220, 220, 220)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        fscale = 0.40
+        thickness = 1
+
+        for i in range(8):
+            rank = str(8 - i)
+            cy = oy + i * cell + cell // 2
+            (tw, th), _ = cv2.getTextSize(rank, font, fscale, thickness)
+            ty = cy + th // 2
+            cv2.putText(canvas.img, rank, (lox + (lm - tw) // 2, ty),
+                        font, fscale, color, thickness, cv2.LINE_AA)
+            cv2.putText(canvas.img, rank, (ox + bw + (lm - tw) // 2, ty),
+                        font, fscale, color, thickness, cv2.LINE_AA)
+
+            letter = chr(ord('a') + i)
+            cx = ox + i * cell + cell // 2
+            (tw, th), _ = cv2.getTextSize(letter, font, fscale, thickness)
+            tx = cx - tw // 2
+            cv2.putText(canvas.img, letter, (tx, loy + (lm + th) // 2),
+                        font, fscale, color, thickness, cv2.LINE_AA)
+            cv2.putText(canvas.img, letter, (tx, oy + bh + (lm + th) // 2),
+                        font, fscale, color, thickness, cv2.LINE_AA)

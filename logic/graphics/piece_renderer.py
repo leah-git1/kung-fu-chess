@@ -48,18 +48,14 @@ class PieceRenderer:
         state.update(piece_key, folder, now_ms)
         frame = state.current_frame(now_ms)
 
-        cell_px = gfx_config.CELL_PX * self._layout.scale
-        cell_size = max(1, int(cell_px))
-        sprite_size = max(1, int(cell_px * 0.95))
-        offset = (cell_size - sprite_size) // 2
+        cs = self._layout.cell_size
+        cell_x = self._layout.board_origin_x + int(col * cs)
+        cell_y = self._layout.board_origin_y + int(row * cs)
 
-        x = self._layout.board_origin_x + int(col * cell_px) + offset
-        y = self._layout.board_origin_y + int(row * cell_px) + offset
+        self._draw_cooldown_bar(canvas, piece, now_ms, cell_x, cell_y, cs)
+        frame.resize(cs, cs).draw_on(canvas, cell_x, cell_y)
 
-        self._draw_cooldown_bar(canvas, piece, now_ms, x, y, cell_size, offset)
-        frame.resize(sprite_size, sprite_size).draw_on(canvas, x, y)
-
-    def _draw_cooldown_bar(self, canvas, piece, now_ms, x, y, cell_size, offset):
+    def _draw_cooldown_bar(self, canvas, piece, now_ms, cell_x, cell_y, cell_size):
         """Fill the whole cell with a colored overlay that shrinks downward during rest states."""
         pid = id(piece)
         if piece.state == PieceState.LONG_REST:
@@ -81,8 +77,8 @@ class PieceRenderer:
         if bar_h <= 0:
             return
 
-        cx = x - offset
-        cy = y - offset + (cell_size - bar_h)
+        cx = cell_x
+        cy = cell_y + (cell_size - bar_h)
 
         b, g, r, a = color
         alpha = a / 255.0
