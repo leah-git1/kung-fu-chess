@@ -60,3 +60,6 @@ class WindowManager:
 
     def is_open(self):
         return cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) >= 1
+
+    def close(self):
+        cv2.destroyWindow(self.window_name)

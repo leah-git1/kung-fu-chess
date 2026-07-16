@@ -71,7 +71,9 @@ class GraphicsApp(GameObserver):
             self._last_tick_ms = now
 
             for event in self._window.poll_events():
-                self._handle_input_event(event)
+                if self._handle_input_event(event) == "close":
+                    self._window.close()
+                    return
 
             if self.start_game_panel.done:
                 self.game.advance_time(elapsed)
@@ -81,6 +83,24 @@ class GraphicsApp(GameObserver):
             remaining = gfx_config.FRAME_TIME_MS - elapsed
             if remaining > 0:
                 time.sleep(remaining / 1000)
+
+    def _reset(self):
+        board = BoardParser().parse(_STARTING_POSITION.strip().splitlines())
+        self.game = Game(board)
+        self.moves_log_black = MovesLog("b")
+        self.moves_log_white = MovesLog("w")
+        self.score_board = ScoreBoard()
+        self.event_source = GameEventSource()
+        self.event_source.add_observer(self.moves_log_black)
+        self.event_source.add_observer(self.moves_log_white)
+        self.event_source.add_observer(self.score_board)
+        self.event_source.add_observer(self)
+        self.input_controller.reset()
+        self.input_adapter._game = self.game
+        self.piece_renderer = PieceRenderer(self.layout)
+        self.start_game_panel = StartGamePanel()
+        self.game_over_panel = GameOverPanel()
+        self._winner_name = None
 
     def on_piece_captured(self, event):
         """Detect royal capture to determine the winner."""
@@ -101,6 +121,13 @@ class GraphicsApp(GameObserver):
         elif kind in ("left_click", "right_click"):
             if not self.start_game_panel.done:
                 self.start_game_panel.on_click(event["x"], event["y"])
+                return
+            if self.game.game_over and self._winner_name:
+                action = self.game_over_panel.on_click(event["x"], event["y"])
+                if action == "new_game":
+                    self._reset()
+                elif action == "close":
+                    return "close"
                 return
             self.input_adapter.on_mouse_event(kind, event["x"], event["y"])
 
@@ -132,14 +159,12 @@ class GraphicsApp(GameObserver):
         self._render_score_row(canvas, "w", rx, top_h, sw)
         self.moves_log_white.render(canvas, rx, top_h + 30, sw, log_h - 30)
 
-        canvas.show(window_name=gfx_config.WINDOW_TITLE)
-
         if not self.start_game_panel.done:
             self.start_game_panel.render(canvas)
-            canvas.show(window_name=gfx_config.WINDOW_TITLE)
         elif self.game.game_over and self._winner_name:
             self.game_over_panel.render(canvas, self._winner_name)
-            canvas.show(window_name=gfx_config.WINDOW_TITLE)
+
+        canvas.show(window_name=gfx_config.WINDOW_TITLE)
 
     def _render_score_row(self, canvas, color, x, y, width):
         """Draw 'Score: N' in a light panel row just below the name label."""

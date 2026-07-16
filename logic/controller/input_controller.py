@@ -27,6 +27,9 @@ class InputController:
     def selected(self):
         return self._selected
 
+    def reset(self):
+        self._selected = None
+
     def on_click(self, x: int, y: int, game) -> None:
         cell = self._mapper.to_cell(x, y)
 
