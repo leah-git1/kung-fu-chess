@@ -29,10 +29,13 @@ class GameEventSource(GameSubject):
             if pid in curr:
                 if curr[pid][1] != prev_cell:
                     self.notify_piece_moved(PieceMovedEvent(
-                        piece, prev_cell, curr[pid][1], ms,
+                        piece.color, prev_cell, curr[pid][1], ms,
                         piece_name=piece.sprite_key[1]))
             else:
-                by_piece = next((p2 for p2, c2 in curr.values() if c2 == prev_cell), None)
+                by = next((p2 for p2, c2 in curr.values() if c2 == prev_cell), None)
                 self.notify_piece_captured(PieceCapturedEvent(
-                    piece, prev_cell, by_piece, ms,
-                    piece_value=piece.value))
+                    prev_cell, ms,
+                    piece_value=piece.value,
+                    by_color=by.color if by else None,
+                    captured_color=piece.color,
+                    captured_type=piece.piece_type.value))

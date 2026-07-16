@@ -91,10 +91,9 @@ class GraphicsApp(GameObserver):
                 time.sleep(remaining / 1000)
 
     def on_piece_captured(self, event):
-        p = event.captured_piece
-        if p and p.piece_type and p.piece_type.value == "K":
+        if event.captured_type == "K":
             self._winner_name = (
-                self.player_names_panel.black_name if p.color == "w"
+                self.player_names_panel.black_name if event.captured_color == "w"
                 else self.player_names_panel.white_name
             )
 

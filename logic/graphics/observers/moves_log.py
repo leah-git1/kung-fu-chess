@@ -21,13 +21,13 @@ class MovesLog(GameObserver):
         self._entries = []    # list of (time_str, move_str)
 
     def on_piece_moved(self, event) -> None:
-        if event.piece.color != self._color:
+        if event.color != self._color:
             return
         move = f"{event.piece_name} {_cell_name(event.origin)}-{_cell_name(event.destination)}"
         self._entries.append((_fmt_time(event.elapsed_ms), move))
 
     def on_piece_captured(self, event) -> None:
-        if event.by_piece and event.by_piece.color != self._color:
+        if event.by_color != self._color:
             return
         move = f"x{_cell_name(event.at_cell)}"
         self._entries.append((_fmt_time(event.elapsed_ms), move))

@@ -7,8 +7,8 @@ class ScoreBoard(GameObserver):
         self._score = {"w": 0, "b": 0}
 
     def on_piece_captured(self, event):
-        if event.by_piece and event.by_piece.color in self._score:
-            self._score[event.by_piece.color] += event.piece_value
+        if event.by_color and event.by_color in self._score:
+            self._score[event.by_color] += event.piece_value
 
     def render_for(self, canvas, color, x, y, width, height):
         """Render score for a single player (color='w' or 'b') at the given position."""
