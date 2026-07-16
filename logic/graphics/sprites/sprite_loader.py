@@ -30,7 +30,3 @@ class SpriteLoader:
                                size=(gfx_config.CELL_PX, gfx_config.CELL_PX))
                   for n in names]
         return Animation(frames, fps=fps, loop=loop)
-
-    @staticmethod
-    def piece_key(piece):
-        return piece.sprite_key

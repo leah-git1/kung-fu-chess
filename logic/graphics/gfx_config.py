@@ -65,8 +65,7 @@ DEFAULT_SPRITE_FPS = 12
 # identity map:
 #   IDLE -> MOVING -> LONG_REST  -> IDLE   (after a move)
 #   IDLE -> JUMPING -> SHORT_REST -> IDLE  (after a jump)
-#   - CAPTURED has no dedicated folder in the asset repo, so it reuses
-#     "idle" while PieceRenderer fades its alpha out (see with_alpha_scale)
+#   - CAPTURED has no dedicated folder in the asset repo, so it reuses "idle"
 STATE_TO_FOLDER = {
     "idle": "idle",
     "moving": "move",
@@ -75,16 +74,7 @@ STATE_TO_FOLDER = {
     "long_rest": "long_rest",
     "captured": "idle",
 }
-# Kept as a defensive fallback only: PieceRenderer still has access to the
-# live JumpMotion list for interpolating *position* while airborne, and
-# uses this in case a JumpMotion is ever active without piece.state
-# already reading "jumping" (e.g. mid-refactor). Normal play never needs it.
 JUMP_FOLDER = "jump"
-
-# How long a captured piece keeps fading out before PieceRenderer drops it
-# for good (ms). Purely a graphics-layer concept - the logic layer already
-# removed the piece from the board the instant it was captured.
-CAPTURE_FADE_MS = 400
 
 # ---------------------------------------------------------------------------
 # Colors (RGBA) - only used for programmatically drawn overlays (highlights,

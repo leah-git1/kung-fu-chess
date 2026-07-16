@@ -25,15 +25,9 @@ class GameImg(Img):
         out.img = cv2.resize(self.img, (max(1, width), max(1, height)))
         return out
 
-    def with_alpha_scale(self, factor):        # for the capture fade-out
-        out = GameImg()
-        out.img = self.img.copy()
-        out.img[:, :, 3] = (out.img[:, :, 3].astype(np.float32) * factor).astype(np.uint8)
-        return out
-
     def show(self, window_name="Kung-Fu Chess"):
         cv2.imshow(window_name, self.img)
-        cv2.waitKey(1)                          # 1ms poll, NOT blocking
+        cv2.waitKey(1)                         
 
 class WindowManager:
     def __init__(self, window_name, width, height):

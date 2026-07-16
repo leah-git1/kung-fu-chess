@@ -48,32 +48,6 @@ class TestGameImgResize:
         assert out is not src
 
 
-class TestGameImgWithAlphaScale:
-    def test_full_scale_preserves_alpha(self):
-        img = GameImg.blank(4, 4, color=(0, 0, 0, 200))
-        out = img.with_alpha_scale(1.0)
-        assert np.all(out.img[:, :, 3] == 200)
-
-    def test_zero_scale_makes_transparent(self):
-        img = GameImg.blank(4, 4, color=(0, 0, 0, 200))
-        out = img.with_alpha_scale(0.0)
-        assert np.all(out.img[:, :, 3] == 0)
-
-    def test_half_scale_halves_alpha(self):
-        img = GameImg.blank(4, 4, color=(0, 0, 0, 200))
-        out = img.with_alpha_scale(0.5)
-        assert np.all(out.img[:, :, 3] == 100)
-
-    def test_does_not_mutate_original(self):
-        img = GameImg.blank(4, 4, color=(0, 0, 0, 200))
-        img.with_alpha_scale(0.0)
-        assert np.all(img.img[:, :, 3] == 200)
-
-    def test_returns_new_instance(self):
-        img = GameImg.blank(4, 4)
-        assert img.with_alpha_scale(1.0) is not img
-
-
 # ── Layout ───────────────────────────────────────────────────────────────────
 
 class TestLayout:
