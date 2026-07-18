@@ -10,7 +10,7 @@ _NUM = re.compile(r"\d+")
 class SpriteLoader:
     def __init__(self, pieces_dir=gfx_config.PIECES_DIR):
         self._pieces_dir = pieces_dir
-        self._cache = {}   # (piece_key, state_folder) -> Animation
+        self._cache = {} 
 
     def get_animation(self, piece_key, state_folder):
         key = (piece_key, state_folder)

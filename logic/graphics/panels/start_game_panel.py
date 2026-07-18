@@ -18,7 +18,6 @@ class StartGamePanel:
 
         gold = gfx_config.COLOR_GOLD[:3]
 
-        # title box
         box_w, box_h = min(560, W - 40), 120
         bx = (W - box_w) // 2
         by = (H - box_h) // 2 - 60

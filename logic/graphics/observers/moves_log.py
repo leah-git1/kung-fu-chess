@@ -1,6 +1,7 @@
 from graphics import gfx_config
 from graphics.img_provider import GameImg
 from graphics.observers.game_events import GameObserver
+import cv2
 
 
 def _cell_name(cell) -> str:
@@ -17,8 +18,8 @@ def _fmt_time(ms: int) -> str:
 
 class MovesLog(GameObserver):
     def __init__(self, color: str):
-        self._color = color   # "w" or "b"
-        self._entries = []    # list of (time_str, move_str)
+        self._color = color   
+        self._entries = []    
 
     def on_piece_moved(self, event) -> None:
         if event.color != self._color:
@@ -29,11 +30,10 @@ class MovesLog(GameObserver):
     def on_piece_captured(self, event) -> None:
         if event.by_color != self._color:
             return
-        move = f"x{_cell_name(event.at_cell)}"
+        move = f"x{event.captured_type}{_cell_name(event.at_cell)}"
         self._entries.append((_fmt_time(event.elapsed_ms), move))
 
     def render(self, canvas, x, y, width, height) -> None:
-        import cv2
         bg     = gfx_config.COLOR_PANEL_BG[:3] + (255,)
         hdr_bg = gfx_config.COLOR_PANEL_HEADER[:3] + (255,)
         text   = gfx_config.COLOR_PANEL_TEXT[:3]

@@ -9,8 +9,8 @@ class PieceRenderer:
     def __init__(self, layout, loader=None):
         self._layout = layout
         self._loader = loader or SpriteLoader()
-        self._states = {}   # id(piece) -> AnimationState
-
+        self._states = {}   
+        
     def render(self, canvas, game, now_ms):
         board_grid = game.snapshot()
         jumping_ids = {id(m.piece) for m in game.active_jumps()}

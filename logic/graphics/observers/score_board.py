@@ -11,11 +11,10 @@ class ScoreBoard(GameObserver):
             self._score[event.by_color] += event.piece_value
 
     def render_for(self, canvas, color, x, y, width, height):
-        """Render score for a single player (color='w' or 'b') at the given position."""
-        score = self._score[color]
-        label = f"Score: {score}"
-        text_w = len(label) * 10
-        tx = x + (width - text_w) // 2
-        ty = y + height - 8
-        cv2.putText(canvas.img, label, (tx, ty),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (20, 20, 20, 255), 2, cv2.LINE_AA)
+        from graphics import gfx_config
+        cv2.rectangle(canvas.img, (x, y), (x + width, y + height),
+                      (*gfx_config.COLOR_PANEL_BG[:3], 255), -1)
+        label = f"Score: {self._score[color]}"
+        (tw, _), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
+        cv2.putText(canvas.img, label, (x + (width - tw) // 2, y + height - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (220, 220, 220, 255), 1, cv2.LINE_AA)

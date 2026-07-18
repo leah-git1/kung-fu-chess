@@ -144,7 +144,6 @@ class GraphicsApp(GameObserver):
         log_h = gfx_config.MOVES_LOG_H
         name = self.player_names_panel.black_name if color == "b" else self.player_names_panel.white_name
 
-        # name label (gold-bordered box above the top bar)
         box_w, box_h = 130, 34
         bx = x + (sw - box_w) // 2
         by = top_h - box_h - 6
@@ -155,15 +154,8 @@ class GraphicsApp(GameObserver):
             cv2.putText(canvas.img, name, (tx, by + box_h - 9),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, (220, 220, 220, 255), 1, cv2.LINE_AA)
 
-        # score row
-        cv2.rectangle(canvas.img, (x, top_h), (x + sw, top_h + 30),
-                      (*gfx_config.COLOR_PANEL_BG[:3], 255), -1)
-        score_label = f"Score: {self.score_board._score[color]}"
-        tw = len(score_label) * 10
-        cv2.putText(canvas.img, score_label, (x + (sw - tw) // 2, top_h + 22),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (220, 220, 220, 255), 1, cv2.LINE_AA)
+        self.score_board.render_for(canvas, color, x, top_h, sw, 30)
 
-        # moves log
         log.render(canvas, x, top_h + 30, sw, log_h - 30)
 
     @staticmethod
