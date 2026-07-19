@@ -1,40 +1,36 @@
-# Python cache
-logic/__pycache__/
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
 *.py[cod]
 *$py.class
 
-# Pytest
+# ── Pytest ────────────────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
+.coveragerc
 htmlcov/
 
-# Virtual environments
+# ── Virtual environments ──────────────────────────────────────────────────────
 venv/
 .venv/
 env/
 
-# IDEs
+# ── IDEs ──────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 
-# OS files
+# ── OS files ──────────────────────────────────────────────────────────────────
 .DS_Store
-Thumbs.db__
+Thumbs.db
 
-# Logs
+# ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
+stream.txt
 
-# Build files
+# ── Build / packaging ─────────────────────────────────────────────────────────
 build/
 dist/
 *.egg-info/
 
-# Temporary files
+# ── Temporary files ───────────────────────────────────────────────────────────
 *.tmp
 *.swp
-
-stream.txt
-logic/.coveragerc
-logic/.coverage
-logic/htmlcov/
-logic/.pytest_cache/
