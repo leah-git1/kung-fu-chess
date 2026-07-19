@@ -1,17 +1,29 @@
 import cv2
 import numpy as np
 from graphics import gfx_config
+from graphics.observers.game_events import GameOverEvent
 from graphics.panels.panel_action import PanelAction
 
 
 class GameOverPanel:
     """Semi-transparent overlay that announces the winner with New Game / Close buttons."""
 
-    def __init__(self):
-        self._new_game_rect = None  
+    def __init__(self, bus, white_name: str, black_name: str):
+        self._new_game_rect = None
         self._close_rect = None
+        self._winner_name = None
+        self._names = {"w": white_name, "b": black_name}
+        bus.subscribe(GameOverEvent, self._on_game_over)
 
-    def render(self, canvas, winner_name: str) -> None:
+    def _on_game_over(self, event):
+        self._winner_name = self._names.get(event.winner_color, event.winner_color)
+
+    @property
+    def active(self):
+        return self._winner_name is not None
+
+    def render(self, canvas) -> None:
+        winner_name = self._winner_name
         img = canvas.img
         H, W = img.shape[:2]
 

@@ -1,14 +1,21 @@
 import cv2
 import numpy as np
 from graphics import gfx_config
+from graphics.observers.game_events import GameStartedEvent
 from graphics.panels.panel_action import PanelAction
 
 
 class StartGamePanel:
-    """Overlay with a START GAME button. Clicking anywhere on the button starts the game."""
+    """Overlay with a START GAME button. Hidden once GameStartedEvent is received."""
 
-    def __init__(self):
-        self._btn_rect = None   
+    def __init__(self, bus):
+        self._btn_rect = None
+        self._active = True
+        bus.subscribe(GameStartedEvent, lambda _: setattr(self, '_active', False))
+
+    @property
+    def active(self):
+        return self._active
         
     def render(self, canvas) -> None:
         img = canvas.img

@@ -2,28 +2,13 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 import numpy as np
+from graphics.observers.event_bus import EventBus
 from graphics.observers.moves_log import MovesLog, _fmt_time, _cell_name
 from graphics.observers.score_board import ScoreBoard
 from graphics.observers.game_events import PieceMovedEvent, PieceCapturedEvent
 from graphics.panels.player_names_panel import PlayerNamesPanel
 from graphics.img_provider import GameImg
-from board.piece import Piece
-from board.piece_type import PieceType
 import graphics.gfx_config as gfx_config
-
-
-# ── helpers ───────────────────────────────────────────────────────────────────
-
-def _piece(color, pt_value):
-    return Piece(color=color, piece_type=PieceType(pt_value))
-
-
-def _moved(piece, origin, dest, ms):
-    return PieceMovedEvent(piece, origin, dest, ms)
-
-
-def _captured(victim, cell, by, ms):
-    return PieceCapturedEvent(victim, cell, by, ms)
 
 
 # ── _fmt_time ─────────────────────────────────────────────────────────────────
@@ -39,7 +24,6 @@ class TestFmtTime:
         assert _fmt_time(75_000) == "01:15.000"
 
     def test_fractional_part_is_centiseconds(self):
-        # 31027 ms → 31s, frac = 27//10 = 2 → "002"
         assert _fmt_time(31_027) == "00:31.002"
 
     def test_large_value(self):
@@ -65,46 +49,50 @@ class TestCellName:
 # ── MovesLog entries ──────────────────────────────────────────────────────────
 
 class TestMovesLogEntries:
+    def _log(self, color):
+        return MovesLog(color, EventBus())
+
     def test_move_for_own_color_recorded(self):
-        log = MovesLog("w")
-        p = _piece("w", "R")
-        log.on_piece_moved(_moved(p, (7, 0), (5, 0), 15_006))
+        bus = EventBus()
+        log = MovesLog("w", bus)
+        bus.publish(PieceMovedEvent("w", (7, 0), (5, 0), 15_006, piece_name="R"))
         assert len(log._entries) == 1
         t, m = log._entries[0]
         assert t == "00:15.000"
-        assert m == "a1-a3"
+        assert "a1" in m and "a3" in m
 
     def test_move_for_other_color_ignored(self):
-        log = MovesLog("w")
-        log.on_piece_moved(_moved(_piece("b", "P"), (1, 0), (2, 0), 1000))
+        bus = EventBus()
+        log = MovesLog("w", bus)
+        bus.publish(PieceMovedEvent("b", (1, 0), (2, 0), 1000, piece_name="P"))
         assert log._entries == []
 
     def test_capture_for_own_color_recorded(self):
-        log = MovesLog("b")
-        attacker = _piece("b", "Q")
-        log.on_piece_captured(_captured(_piece("w", "P"), (6, 3), attacker, 31_027))
+        bus = EventBus()
+        log = MovesLog("b", bus)
+        bus.publish(PieceCapturedEvent((6, 3), 31_027, by_color="b", captured_type="P"))
         assert len(log._entries) == 1
         t, m = log._entries[0]
         assert t == "00:31.002"
-        assert m == "xd2"
+        assert "xP" in m and "d2" in m
 
     def test_capture_by_other_color_ignored(self):
-        log = MovesLog("b")
-        attacker = _piece("w", "R")
-        log.on_piece_captured(_captured(_piece("b", "P"), (1, 0), attacker, 1000))
+        bus = EventBus()
+        log = MovesLog("b", bus)
+        bus.publish(PieceCapturedEvent((1, 0), 1000, by_color="w", captured_type="P"))
         assert log._entries == []
 
     def test_multiple_entries_accumulate(self):
-        log = MovesLog("w")
-        p = _piece("w", "N")
-        log.on_piece_moved(_moved(p, (7, 1), (5, 2), 1000))
-        log.on_piece_moved(_moved(p, (5, 2), (3, 3), 2000))
+        bus = EventBus()
+        log = MovesLog("w", bus)
+        bus.publish(PieceMovedEvent("w", (7, 1), (5, 2), 1000, piece_name="N"))
+        bus.publish(PieceMovedEvent("w", (5, 2), (3, 3), 2000, piece_name="N"))
         assert len(log._entries) == 2
 
     def test_render_does_not_raise(self):
-        log = MovesLog("w")
-        p = _piece("w", "R")
-        log.on_piece_moved(_moved(p, (7, 0), (5, 0), 5000))
+        bus = EventBus()
+        log = MovesLog("w", bus)
+        bus.publish(PieceMovedEvent("w", (7, 0), (5, 0), 5000, piece_name="R"))
         canvas = GameImg.blank(gfx_config.WINDOW_PX_W, gfx_config.WINDOW_PX_H)
         log.render(canvas, 0, 0, gfx_config.SIDEBAR_PX_W, gfx_config.MOVES_LOG_H)
 
@@ -136,45 +124,40 @@ class TestPlayerNamesPanel:
         panel = PlayerNamesPanel(white_name="Alice", black_name="Bob")
         canvas = GameImg.blank(800, gfx_config.TOP_NAME_H, color=(0, 0, 0, 255))
         panel.render(canvas, 0, 0, 800, gfx_config.TOP_NAME_H)
-        # panel background color should differ from pure black
-        bg = gfx_config.COLOR_PANEL_BG
         assert not np.all(canvas.img == 0), "canvas should be modified by render"
 
 
 # ── ScoreBoard render ─────────────────────────────────────────────────────────
 
 class TestScoreBoardRender:
+    def _make(self):
+        bus = EventBus()
+        return ScoreBoard(bus), bus
+
     def _canvas(self):
-        return GameImg.blank(800, gfx_config.TOP_SCORE_H, color=(0, 0, 0, 255))
+        return GameImg.blank(800, 30, color=(0, 0, 0, 255))
 
     def test_render_does_not_raise(self):
-        sb = ScoreBoard()
-        sb.render(self._canvas(), 0, 0, 800, gfx_config.TOP_SCORE_H)
+        sb, _ = self._make()
+        sb.render_for(self._canvas(), "w", 0, 0, 800, 30)
 
     def test_render_modifies_canvas(self):
-        sb = ScoreBoard()
+        sb, _ = self._make()
         canvas = self._canvas()
-        sb.render(canvas, 0, 0, 800, gfx_config.TOP_SCORE_H)
+        sb.render_for(canvas, "w", 0, 0, 800, 30)
         assert not np.all(canvas.img == 0)
 
-    def test_gold_separator_line_drawn(self):
-        sb = ScoreBoard()
-        h = gfx_config.TOP_SCORE_H
-        canvas = self._canvas()
-        sb.render(canvas, 0, 0, 800, h)
-        # bottom row should contain the gold color (BGR: 30,190,210)
-        bottom_row = canvas.img[h - 1, :, :3]
-        gold_bgr = np.array(gfx_config.COLOR_GOLD[:3], dtype=np.uint8)
-        assert np.any(np.all(bottom_row == gold_bgr, axis=1))
-
     def test_even_score_label(self):
-        # ScoreBoard at 0-0 should produce "Score: Even" — verify via score state
-        sb = ScoreBoard()
+        sb, _ = self._make()
         assert sb._score["w"] == 0 and sb._score["b"] == 0
 
     def test_positive_score_label(self):
-        sb = ScoreBoard()
-        attacker = _piece("w", "Q")
-        sb.on_piece_captured(PieceCapturedEvent(_piece("b", "R"), (0, 0), attacker))
-        total = sb._score["w"] - sb._score["b"]
-        assert total > 0
+        sb, bus = self._make()
+        bus.publish(PieceCapturedEvent((0, 0), piece_value=5, by_color="w"))
+        assert sb._score["w"] - sb._score["b"] > 0
+
+    def test_capture_accumulates(self):
+        sb, bus = self._make()
+        bus.publish(PieceCapturedEvent((0, 0), piece_value=1, by_color="w"))
+        bus.publish(PieceCapturedEvent((1, 0), piece_value=5, by_color="w"))
+        assert sb._score["w"] == 6

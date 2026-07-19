@@ -1,6 +1,6 @@
 from graphics import gfx_config
 from graphics.img_provider import GameImg
-from graphics.observers.game_events import GameObserver
+from graphics.observers.game_events import PieceMovedEvent, PieceCapturedEvent
 import cv2
 
 
@@ -16,18 +16,20 @@ def _fmt_time(ms: int) -> str:
     return f"{m:02d}:{s:02d}.{frac:03d}"
 
 
-class MovesLog(GameObserver):
-    def __init__(self, color: str):
-        self._color = color   
-        self._entries = []    
+class MovesLog:
+    def __init__(self, color: str, bus):
+        self._color = color
+        self._entries = []
+        bus.subscribe(PieceMovedEvent, self._on_piece_moved)
+        bus.subscribe(PieceCapturedEvent, self._on_piece_captured)
 
-    def on_piece_moved(self, event) -> None:
+    def _on_piece_moved(self, event) -> None:
         if event.color != self._color:
             return
         move = f"{event.piece_name} {_cell_name(event.origin)}-{_cell_name(event.destination)}"
         self._entries.append((_fmt_time(event.elapsed_ms), move))
 
-    def on_piece_captured(self, event) -> None:
+    def _on_piece_captured(self, event) -> None:
         if event.by_color != self._color:
             return
         move = f"x{event.captured_type}{_cell_name(event.at_cell)}"

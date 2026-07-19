@@ -12,8 +12,9 @@ from graphics.board_renderer import BoardRenderer
 from graphics.img_provider import GameImg, WindowManager
 from graphics.input_adapter import InputAdapter
 from graphics.layout import Layout
+from graphics.observers.event_bus import EventBus
 from graphics.observers.game_event_source import GameEventSource
-from graphics.observers.game_events import GameObserver
+from graphics.observers.game_events import GameStartedEvent
 from graphics.observers.moves_log import MovesLog
 from graphics.observers.score_board import ScoreBoard
 from graphics.panels.player_names_panel import PlayerNamesPanel
@@ -36,8 +37,10 @@ Commands:
 """
 
 
-class GraphicsApp(GameObserver):
+class GraphicsApp:
     def __init__(self, white_name="White", black_name="Black"):
+        self._white_name = white_name
+        self._black_name = black_name
         self.layout = Layout()
         self.board_renderer = BoardRenderer(self.layout)
         self.player_names_panel = PlayerNamesPanel(white_name, black_name)
@@ -54,18 +57,15 @@ class GraphicsApp(GameObserver):
         board = BoardParser().parse(_STARTING_POSITION.strip().splitlines())
         self.game = Game(board)
         self.piece_renderer = PieceRenderer(self.layout)
-        self.moves_log_black = MovesLog("b")
-        self.moves_log_white = MovesLog("w")
-        self.score_board = ScoreBoard()
-        self.event_source = GameEventSource()
-        self.event_source.add_observer(self.moves_log_black)
-        self.event_source.add_observer(self.moves_log_white)
-        self.event_source.add_observer(self.score_board)
-        self.event_source.add_observer(self)
-        self.start_game_panel = StartGamePanel()
-        self.game_over_panel = GameOverPanel()
-        self._winner_name = None
-        self._game_started = False
+
+        self.bus = EventBus()
+        self.moves_log_black = MovesLog("b", self.bus)
+        self.moves_log_white = MovesLog("w", self.bus)
+        self.score_board = ScoreBoard(self.bus)
+        self.start_game_panel = StartGamePanel(self.bus)
+        self.game_over_panel = GameOverPanel(self.bus, self._white_name, self._black_name)
+        self.event_source = GameEventSource(self.bus)
+
         self.input_controller.reset()
         self.input_adapter._game = self.game
 
@@ -81,7 +81,7 @@ class GraphicsApp(GameObserver):
                     self._window.close()
                     return
 
-            if self._game_started:
+            if not self.start_game_panel.active:
                 self.game.advance_time(elapsed)
                 self.event_source.poll(self.game)
             self._render_frame(self.game.current_time)
@@ -89,16 +89,6 @@ class GraphicsApp(GameObserver):
             remaining = gfx_config.FRAME_TIME_MS - elapsed
             if remaining > 0:
                 time.sleep(remaining / 1000)
-
-    def on_piece_captured(self, event):
-        if event.captured_type == "K":
-            self._winner_name = (
-                self.player_names_panel.black_name if event.captured_color == "w"
-                else self.player_names_panel.white_name
-            )
-
-    def on_piece_moved(self, event):
-        pass
 
     def _handle_input_event(self, event):
         kind = event["type"]
@@ -108,11 +98,11 @@ class GraphicsApp(GameObserver):
             return self._handle_click(event["x"], event["y"], kind)
 
     def _handle_click(self, x, y, kind):
-        if not self._game_started:
+        if self.start_game_panel.active:
             if self.start_game_panel.on_click(x, y) == PanelAction.START:
-                self._game_started = True
+                self.bus.publish(GameStartedEvent())
             return
-        if self.game.game_over and self._winner_name:
+        if self.game_over_panel.active:
             action = self.game_over_panel.on_click(x, y)
             if action == PanelAction.NEW_GAME:
                 self._init_game_state()
@@ -131,10 +121,10 @@ class GraphicsApp(GameObserver):
         self._render_sidebar(canvas, "b", self.layout.left_sidebar_x, self.moves_log_black)
         self._render_sidebar(canvas, "w", self.layout.right_sidebar_x, self.moves_log_white)
 
-        if not self._game_started:
+        if self.start_game_panel.active:
             self.start_game_panel.render(canvas)
-        elif self.game.game_over and self._winner_name:
-            self.game_over_panel.render(canvas, self._winner_name)
+        elif self.game_over_panel.active:
+            self.game_over_panel.render(canvas)
 
         canvas.show(window_name=gfx_config.WINDOW_TITLE)
 

@@ -1,12 +1,13 @@
 import cv2
-from graphics.observers.game_events import GameObserver
+from graphics.observers.game_events import PieceCapturedEvent
 
 
-class ScoreBoard(GameObserver):
-    def __init__(self):
+class ScoreBoard:
+    def __init__(self, bus):
         self._score = {"w": 0, "b": 0}
+        bus.subscribe(PieceCapturedEvent, self._on_piece_captured)
 
-    def on_piece_captured(self, event):
+    def _on_piece_captured(self, event):
         if event.by_color and event.by_color in self._score:
             self._score[event.by_color] += event.piece_value
 

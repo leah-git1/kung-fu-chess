@@ -11,6 +11,7 @@ class Game:
         self._board = board
         self.current_time = 0
         self._game_over = False
+        self._winner_color: str | None = None
         self._arbiter = RealTimeArbiter()
         self._rules = RuleEngine()
 
@@ -18,9 +19,9 @@ class Game:
     def game_over(self) -> bool:
         return self._game_over
 
-    @game_over.setter
-    def game_over(self, value: bool) -> None:
-        self._game_over = value
+    @property
+    def winner_color(self) -> str | None:
+        return self._winner_color
 
     # ------------------------------------------------------------------
     # Public API — intent-based, no input interpretation
@@ -86,8 +87,10 @@ class Game:
         self._process_arrivals(applied_moves)
 
     def _process_captures(self, captured) -> None:
-        if any(self._is_royal(p) for p in captured):
-            self._game_over = True
+        for p in captured:
+            if self._is_royal(p):
+                self._game_over = True
+                self._winner_color = "b" if p.color == "w" else "w"
 
     def _process_arrivals(self, applied_moves) -> None:
         for move in applied_moves:

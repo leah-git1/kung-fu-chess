@@ -1,5 +1,5 @@
-from abc import ABC
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class PieceMovedEvent:
@@ -14,16 +14,10 @@ class PieceCapturedEvent:
     captured_color: str = ""
     captured_type: str = ""
 
-class GameObserver(ABC):
-    def on_piece_moved(self, event): pass
-    def on_piece_captured(self, event): pass
+@dataclass(frozen=True)
+class GameStartedEvent:
+    pass
 
-class GameSubject:
-    def __init__(self):
-        self._observers = []
-    def add_observer(self, obs):
-        self._observers.append(obs)
-    def notify_piece_moved(self, event):
-        for o in self._observers: o.on_piece_moved(event)
-    def notify_piece_captured(self, event):
-        for o in self._observers: o.on_piece_captured(event)
+@dataclass(frozen=True)
+class GameOverEvent:
+    winner_color: str
