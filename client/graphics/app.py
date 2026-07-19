@@ -1,5 +1,4 @@
 import os, sys, time
-import cv2
 
 _CLIENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOGIC_DIR  = os.path.join(os.path.dirname(_CLIENT_DIR), "logic")
@@ -12,20 +11,13 @@ from controller.input_controller import InputController
 from game.game import Game
 
 from graphics import gfx_config
-from graphics.board_renderer import BoardRenderer
 from graphics.img_provider import GameImg, WindowManager
 from graphics.input_adapter import InputAdapter
-from graphics.layout import Layout
-from events.event_bus import EventBus
+from graphics.game_renderer import GameRenderer
 from events.game_event_source import GameEventSource
 from events.game_events import GameStartedEvent
-from graphics.observers.moves_log import MovesLog
-from graphics.observers.score_board import ScoreBoard
-from graphics.panels.player_names_panel import PlayerNamesPanel
-from graphics.panels.game_over_panel import GameOverPanel
 from graphics.panels.start_game_panel import StartGamePanel
 from graphics.panels.panel_action import PanelAction
-from graphics.piece_renderer import PieceRenderer
 
 _STARTING_POSITION = """
 Board:
@@ -45,33 +37,26 @@ class GraphicsApp:
     def __init__(self, white_name="White", black_name="Black"):
         self._white_name = white_name
         self._black_name = black_name
-        self.layout = Layout()
-        self.board_renderer = BoardRenderer(self.layout)
-        self.player_names_panel = PlayerNamesPanel(white_name, black_name)
+        self._renderer = GameRenderer(white_name, black_name)
 
         mapper = BoardMapper(gfx_config.CELL_PX)
         self.input_controller = InputController(mapper)
-        self.input_adapter = InputAdapter(self.input_controller, self.layout, None)
+        self.input_adapter = InputAdapter(self.input_controller, self._renderer.layout, None)
 
-        self._window = WindowManager(gfx_config.WINDOW_TITLE, self.layout.window_px_w, self.layout.window_px_h)
+        self._window = WindowManager(gfx_config.WINDOW_TITLE,
+                                     self._renderer.layout.window_px_w,
+                                     self._renderer.layout.window_px_h)
         self._last_tick_ms = None
         self._init_game_state()
 
     def _init_game_state(self):
         board = BoardParser().parse(_STARTING_POSITION.strip().splitlines())
         self.game = Game(board)
-        self.piece_renderer = PieceRenderer(self.layout)
-
-        self.bus = EventBus()
-        self.moves_log_black = MovesLog("b", self.bus)
-        self.moves_log_white = MovesLog("w", self.bus)
-        self.score_board = ScoreBoard(self.bus)
-        self.start_game_panel = StartGamePanel(self.bus)
-        self.game_over_panel = GameOverPanel(self.bus, self._white_name, self._black_name)
-        self.event_source = GameEventSource(self.bus)
-
+        self._renderer = GameRenderer(self._white_name, self._black_name)
+        self.start_game_panel = StartGamePanel(self._renderer.bus)
+        self.event_source = GameEventSource(self._renderer.bus)
         self.input_controller.reset()
-        self.input_adapter._game = self.game
+        self.input_adapter = InputAdapter(self.input_controller, self._renderer.layout, self.game)
 
     def run(self):
         self._last_tick_ms = self._now_ms()
@@ -104,10 +89,10 @@ class GraphicsApp:
     def _handle_click(self, x, y, kind):
         if self.start_game_panel.active:
             if self.start_game_panel.on_click(x, y) == PanelAction.START:
-                self.bus.publish(GameStartedEvent())
+                self._renderer.bus.publish(GameStartedEvent())
             return
-        if self.game_over_panel.active:
-            action = self.game_over_panel.on_click(x, y)
+        if self._renderer.game_over_panel.active:
+            action = self._renderer.game_over_panel.on_click(x, y)
             if action == PanelAction.NEW_GAME:
                 self._init_game_state()
             elif action == PanelAction.CLOSE:
@@ -116,41 +101,12 @@ class GraphicsApp:
         self.input_adapter.on_mouse_event(kind, x, y)
 
     def _render_frame(self, now_ms):
-        W, H = self.layout.window_px_w, self.layout.window_px_h
-        canvas = GameImg.blank(W, H, (15, 15, 15, 255))
-
-        self.player_names_panel.render(canvas, 0, 0, W, gfx_config.TOP_BAR_H)
-        self.board_renderer.render(canvas, selected_cell=self.input_controller.selected)
-        self.piece_renderer.render(canvas, self.game, now_ms)
-        self._render_sidebar(canvas, "b", self.layout.left_sidebar_x, self.moves_log_black)
-        self._render_sidebar(canvas, "w", self.layout.right_sidebar_x, self.moves_log_white)
-
-        if self.start_game_panel.active:
-            self.start_game_panel.render(canvas)
-        elif self.game_over_panel.active:
-            self.game_over_panel.render(canvas)
-
+        layout = self._renderer.layout
+        canvas = GameImg.blank(layout.window_px_w, layout.window_px_h, (15, 15, 15, 255))
+        self._renderer.render_frame(canvas, self.game, now_ms,
+                                    selected_cell=self.input_controller.selected,
+                                    overlay=self.start_game_panel)
         canvas.show(window_name=gfx_config.WINDOW_TITLE)
-
-    def _render_sidebar(self, canvas, color, x, log):
-        sw = gfx_config.SIDEBAR_PX_W
-        top_h = gfx_config.TOP_BAR_H
-        log_h = gfx_config.MOVES_LOG_H
-        name = self.player_names_panel.black_name if color == "b" else self.player_names_panel.white_name
-
-        box_w, box_h = 130, 34
-        bx = x + (sw - box_w) // 2
-        by = top_h - box_h - 6
-        if by >= 0:
-            cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (20, 20, 20, 255), -1)
-            cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (30, 190, 210, 255), 2)
-            tx = bx + (box_w - len(name) * 11) // 2
-            cv2.putText(canvas.img, name, (tx, by + box_h - 9),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (220, 220, 220, 255), 1, cv2.LINE_AA)
-
-        self.score_board.render_for(canvas, color, x, top_h, sw, 30)
-
-        log.render(canvas, x, top_h + 30, sw, log_h - 30)
 
     @staticmethod
     def _now_ms():

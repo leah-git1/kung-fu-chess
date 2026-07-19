@@ -24,10 +24,10 @@ from events.game_event_source import GameEventSource
 
 from shared.constants import TICK_RATE_MS
 import shared.message_types as T
-from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, parse
+from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, JumpAckMsg, parse
 
 from server.session.player_connection import PlayerConnection
-from server.protocol.serializer import board_to_json, apply_move, apply_jump
+from server.protocol.serializer import board_to_json, motions_to_json, apply_move, apply_jump
 from server.logging.server_logger import log
 
 
@@ -45,8 +45,9 @@ Commands:"""
 
 
 class GameSession:
-    def __init__(self, white: PlayerConnection, black: PlayerConnection):
+    def __init__(self, white: PlayerConnection, black: PlayerConnection, on_done=None):
         self._players: dict[str, PlayerConnection] = {"w": white, "b": black}
+        self._on_done = on_done
         board = BoardParser().parse(_STARTING_POSITION.splitlines())
         self._game = Game(board)
         self._bus  = EventBus()
@@ -56,13 +57,16 @@ class GameSession:
     # ── public entry point ────────────────────────────────────────────────────
 
     async def run(self) -> None:
-        """Start the tick loop and both receive loops concurrently."""
         log(f"session started  w={self._players['w'].name}  b={self._players['b'].name}")
-        await asyncio.gather(
-            self._tick_loop(),
-            self._receive_loop("w"),
-            self._receive_loop("b"),
-        )
+        try:
+            await asyncio.gather(
+                self._tick_loop(),
+                self._receive_loop("w"),
+                self._receive_loop("b"),
+            )
+        finally:
+            if self._on_done:
+                self._on_done()
 
     # ── tick loop ─────────────────────────────────────────────────────────────
 
@@ -73,7 +77,7 @@ class GameSession:
             self._game.advance_time(TICK_RATE_MS)
             self._event_source.poll(self._game)
             await self._broadcast(StateUpdateMsg(
-                board=board_to_json(self._game),
+                board=[],
                 time_ms=self._game.current_time,
             ))
             if self._game.game_over and not self._game_over_sent:
@@ -104,20 +108,30 @@ class GameSession:
     async def _handle(self, color: str, msg) -> None:
         conn = self._players[color]
         if msg.__class__.__name__ == "MoveMsg":
-            # enforce color ownership: only move your own pieces
             from_cell = tuple(msg.from_cell)
             piece = self._game.get_piece_at(from_cell)
             if piece is None or piece.color != color:
                 await conn.send(ErrorMsg(reason="not your piece"))
                 return
-            apply_move(msg, self._game)
+            accepted = apply_move(msg, self._game)
+            if accepted:
+                await self._broadcast(MoveAckMsg(
+                    from_cell=list(from_cell),
+                    to_cell=list(msg.to_cell),
+                    time_ms=self._game.current_time,
+                ))
         elif msg.__class__.__name__ == "JumpMsg":
             cell = tuple(msg.cell)
             piece = self._game.get_piece_at(cell)
             if piece is None or piece.color != color:
                 await conn.send(ErrorMsg(reason="not your piece"))
                 return
-            apply_jump(msg, self._game)
+            accepted = apply_jump(msg, self._game)
+            if accepted:
+                await self._broadcast(JumpAckMsg(
+                    cell=list(cell),
+                    time_ms=self._game.current_time,
+                ))
 
     # ── helpers ───────────────────────────────────────────────────────────────
 

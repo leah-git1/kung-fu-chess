@@ -9,14 +9,44 @@ from __future__ import annotations
 
 
 def board_to_json(game) -> list:
-    """Serialise the current board snapshot to a JSON-safe nested list.
+    # build a lookup: piece id -> cooldown finish_time
+    cooldown_finish = {}
+    for m in game._arbiter._motions:
+        from realtime.motion import CooldownMotion
+        if isinstance(m, CooldownMotion):
+            cooldown_finish[id(m.piece)] = m.finish_time
 
-    Each cell is either None (empty) or a two-character string like "wR", "bK".
-    """
     return [
-        [None if piece is None else piece.sprite_key for piece in row]
+        [None if piece is None else {
+            "k": piece.sprite_key,
+            "s": piece.state_name,
+            "cd_finish": cooldown_finish.get(id(piece)),
+         }
+         for piece in row]
         for row in game.snapshot()
     ]
+
+
+def motions_to_json(game) -> dict:
+    """Serialise active moves and jumps for client-side animation."""
+    moves = [
+        {
+            "key":   m.piece.sprite_key,
+            "origin":      list(m.origin),
+            "destination": list(m.destination),
+            "actual_dest": list(m.actual_destination),
+            "finish_time": m.finish_time,
+        }
+        for m in game.active_moves()
+    ]
+    jumps = [
+        {
+            "key":  m.piece.sprite_key,
+            "cell": list(m.cell),
+        }
+        for m in game.active_jumps()
+    ]
+    return {"moves": moves, "jumps": jumps}
 
 
 def apply_move(msg, game) -> bool:

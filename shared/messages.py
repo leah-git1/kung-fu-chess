@@ -141,13 +141,16 @@ class RoomStateMsg:
     room_id: str
     players: list[str]
     started: bool
+    color: str = ""   # assigned color for the receiving player ("w" or "b")
 
     def to_json(self) -> dict:
-        return _base(T.ROOM_STATE, {"room_id": self.room_id, "players": self.players, "started": self.started})
+        return _base(T.ROOM_STATE, {"room_id": self.room_id, "players": self.players,
+                                    "started": self.started, "color": self.color})
 
     @classmethod
     def from_json(cls, d: dict) -> RoomStateMsg:
-        return cls(room_id=d["room_id"], players=d["players"], started=d["started"])
+        return cls(room_id=d["room_id"], players=d["players"],
+                   started=d["started"], color=d.get("color", ""))
 
 
 # ── In-game ───────────────────────────────────────────────────────────────────
@@ -191,13 +194,16 @@ class JumpMsg:
 class StateUpdateMsg:
     board: list
     time_ms: int
+    motions: dict = None
 
     def to_json(self) -> dict:
-        return _base(T.STATE_UPDATE, {"board": self.board, "time_ms": self.time_ms})
+        return _base(T.STATE_UPDATE, {"board": self.board, "time_ms": self.time_ms,
+                                      "motions": self.motions or {"moves": [], "jumps": []}})
 
     @classmethod
     def from_json(cls, d: dict) -> StateUpdateMsg:
-        return cls(board=d["board"], time_ms=d["time_ms"])
+        return cls(board=d["board"], time_ms=d["time_ms"],
+                   motions=d.get("motions", {"moves": [], "jumps": []}))
 
 
 @dataclass
