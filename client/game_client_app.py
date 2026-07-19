@@ -26,7 +26,7 @@ from client.views.connecting_view import ConnectingView
 from client.views.game_view import GameView
 from shared.messages import RoomStateMsg
 from shared.constants import DEFAULT_PORT, PROTOCOL_VERSION
-
+from shared.messages import LoginMsg
 
 class GameClientApp:
     def __init__(self, host: str, port: int = DEFAULT_PORT,
@@ -36,34 +36,27 @@ class GameClientApp:
 
         self._ws = WsClient(url)
 
-        # ── views ─────────────────────────────────────────────────────────────
         self._connecting_view = ConnectingView()
         self._game_view       = GameView()
 
         self._vm = ViewManager()
         self._vm.register(ViewAction.GOTO_GAME,       self._game_view)
 
-        # ── window ────────────────────────────────────────────────────────────
         self._window = WindowManager(
             gfx_config.WINDOW_TITLE,
             gfx_config.WINDOW_PX_W,
             gfx_config.WINDOW_PX_H,
         )
 
-        # track assigned color and names from RoomStateMsg
         self._color      = "w"
         self._white_name = "White"
         self._black_name = "Black"
 
     def run(self) -> None:
-        # start network (daemon thread)
         self._ws.start()
 
-        # send single join message — server reads name from it
-        from shared.messages import LoginMsg
         self._ws.send(LoginMsg(name=self._player_name, password=""))
 
-        # start on connecting screen
         self._current_view = self._connecting_view
         self._current_view.on_enter({"status": "Connecting to server…"})
 
@@ -74,22 +67,18 @@ class GameClientApp:
             elapsed = now - last_ms
             last_ms = now
 
-            # ── drain inbound messages ────────────────────────────────────────
             while not self._ws.inbound.empty():
                 msg = self._ws.inbound.get_nowait()
                 self._handle_server_message(msg)
 
-            # ── tick game if in game view ────────────────────────────────────
             if hasattr(self._current_view, "tick"):
                 self._current_view.tick()
 
-            # ── poll window events ────────────────────────────────────────────
             for event in self._window.poll_events():
                 if self._dispatch_event(event) == "close":
                     self._window.close()
                     return
 
-            # ── render ────────────────────────────────────────────────────────
             canvas = GameImg.blank(
                 gfx_config.WINDOW_PX_W,
                 gfx_config.WINDOW_PX_H,
@@ -102,7 +91,6 @@ class GameClientApp:
             if remaining > 0:
                 time.sleep(remaining / 1000)
 
-    # ── server message routing ────────────────────────────────────────────────
 
     def _handle_server_message(self, msg) -> None:
         if isinstance(msg, RoomStateMsg) and msg.started:
@@ -113,8 +101,7 @@ class GameClientApp:
             if msg.color:
                 self._color = msg.color
             self._switch_to_game()
-            return   # don't also pass to view — view is now GameView
-
+            return   
         action = self._current_view.handle_server_message(msg)
         if action:
             self._switch(action)
@@ -136,7 +123,6 @@ class GameClientApp:
         if action == ViewAction.GOTO_GAME:
             self._switch_to_game()
 
-    # ── window event routing ──────────────────────────────────────────────────
 
     def _dispatch_event(self, event: dict):
         kind = event["type"]

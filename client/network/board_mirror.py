@@ -1,33 +1,25 @@
+"""
+BoardMirror — client-side view model of the authoritative server board.
+
+Depends only on:
+  - shared/  (wire protocol)
+  - client/network/piece_vm.py  (own ViewModel)
+
+Zero imports from logic/.
+"""
 from __future__ import annotations
 import logging
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "logic"))
-
-from board.piece import Piece, PieceState
-from board.piece_type import PieceType
-import config
+from client.network.piece_vm import PieceVM
+from shared.constants import JUMP_DURATION, LONG_REST_DURATION, SHORT_REST_DURATION
 
 _log = logging.getLogger(__name__)
 
 
-def _make_piece(key: str) -> Piece:
-    color    = key[0]
-    pt_value = key[1]
-    p = Piece(
-        color=color,
-        piece_type=PieceType(pt_value),
-        is_royal=(pt_value in config.ROYAL_PIECE_TYPES),
-        forward_direction=config.FORWARD_DIRECTION.get(color, 0),
-    )
-    _log.debug("Piece CREATED id=%d key=%s", id(p), key)
-    return p
+# ── motion view models ────────────────────────────────────────────────────────
 
-
-# ── lightweight motion stubs (same interface PieceRenderer reads) ─────────────
-
-class _MoveMotionStub:
-    def __init__(self, piece, origin, destination, actual_destination, start_time, finish_time):
-        self.piece              = piece
+class MoveMotionVM:
+    def __init__(self, piece_vm, origin, destination, actual_destination, start_time, finish_time):
+        self.piece              = piece_vm
         self.origin             = tuple(origin)
         self.destination        = tuple(destination)
         self.actual_destination = tuple(actual_destination)
@@ -35,18 +27,18 @@ class _MoveMotionStub:
         self.finish_time        = finish_time
 
 
-class _JumpMotionStub:
-    def __init__(self, piece, cell, finish_time):
-        self.piece       = piece
+class JumpMotionVM:
+    def __init__(self, piece_vm, cell, finish_time):
+        self.piece       = piece_vm
         self.cell        = tuple(cell)
         self.finish_time = finish_time
 
 
-class _CooldownStub:
-    def __init__(self, piece, rest_type, start_time, finish_time):
-        self.piece      = piece
-        self.rest_type  = rest_type
-        self.start_time = start_time
+class CooldownVM:
+    def __init__(self, piece_vm, rest_type, start_time, finish_time):
+        self.piece       = piece_vm
+        self.rest_type   = rest_type
+        self.start_time  = start_time
         self.finish_time = finish_time
 
 
@@ -57,28 +49,35 @@ class BoardMirror:
     COLS = 8
 
     def __init__(self):
-        self.current_time: int    = 0
-        self.game_over: bool      = False
+        self.current_time: int        = 0
+        self.game_over: bool          = False
         self.winner_color: str | None = None
-        self._grid: list[list]    = [[None] * self.COLS for _ in range(self.ROWS)]
-        # stable piece registry: sprite_key -> [Piece, ...]
-        self._registry: dict[str, list[Piece]] = {}
-        # live motion stubs keyed to survive across snapshots
-        self._move_stubs: dict[tuple, _MoveMotionStub] = {}   # (key, origin, dest) -> stub
-        self._jump_stubs: dict[tuple, _JumpMotionStub] = {}   # (key, cell) -> stub
-        self._cd_stubs:   dict[tuple, _CooldownStub]   = {}   # (key, rest_type, finish) -> stub
 
-    def _get_or_create(self, key: str, index: int) -> Piece:
-        bucket = self._registry.setdefault(key, [])
+        self._grid: list[list]        = [[None] * self.COLS for _ in range(self.ROWS)]
+        # sprite_key -> [PieceVM, ...]  — stable objects reused across snapshots
+        self._registry: dict[str, list[PieceVM]] = {}
+        # keyed motion VMs — preserved across snapshots, never recreated for the same motion
+        self._move_vms: dict[tuple, MoveMotionVM] = {}   # (key, origin, dest)
+        self._jump_vms: dict[tuple, JumpMotionVM] = {}   # (key, cell)
+        self._cd_vms:   dict[tuple, CooldownVM]   = {}   # (key, rest_type, finish_time)
+
+    # ── piece identity ────────────────────────────────────────────────────────
+
+    def _get_or_create(self, sprite_key: str, index: int) -> PieceVM:
+        bucket = self._registry.setdefault(sprite_key, [])
         while len(bucket) <= index:
-            bucket.append(_make_piece(key))
+            vm = PieceVM(sprite_key=sprite_key, state_name="idle")
+            _log.debug("PieceVM CREATED id=%d key=%s", id(vm), sprite_key)
+            bucket.append(vm)
         return bucket[index]
+
+    # ── main update ───────────────────────────────────────────────────────────
 
     def apply_state_update(self, board: list, time_ms: int, motions: dict = None) -> None:
         self.current_time = time_ms
         motions = motions or {"moves": [], "jumps": [], "cooldowns": []}
 
-        # ── rebuild grid with stable piece instances ──────────────────────────
+        # ── rebuild grid, reusing stable PieceVM objects by scan-order index ─
         new_grid = [[None] * self.COLS for _ in range(self.ROWS)]
         counters: dict[str, int] = {}
 
@@ -90,31 +89,29 @@ class BoardMirror:
                 state_name = cell.get("s", "idle") if isinstance(cell, dict) else "idle"
                 idx        = counters.get(key, 0)
                 counters[key] = idx + 1
-                piece = self._get_or_create(key, idx)
-                try:
-                    piece.state = PieceState(state_name)
-                except ValueError:
-                    piece.state = PieceState.IDLE
-                new_grid[r][c] = piece
+                vm = self._get_or_create(key, idx)
+                vm.state_name = state_name
+                new_grid[r][c] = vm
 
         self._grid = new_grid
 
-        # ── update move stubs — preserve existing ones, add new, drop finished ─
+        # ── motion VMs — counters start fresh, independent of grid ────────────
         motion_counters: dict[str, int] = {}
 
-        def _piece_for_motion(key: str) -> Piece:
+        def _vm_for_motion(key: str) -> PieceVM:
             idx = motion_counters.get(key, 0)
             motion_counters[key] = idx + 1
             return self._get_or_create(key, idx)
 
-        incoming_move_keys = set()
+        # moves
+        incoming_move_keys: set[tuple] = set()
         for m in motions.get("moves", []):
             stub_key = (m["key"], tuple(m["origin"]), tuple(m["destination"]))
             incoming_move_keys.add(stub_key)
-            if stub_key not in self._move_stubs:
-                _log.debug("MoveMotionStub CREATED %s", stub_key)
-                self._move_stubs[stub_key] = _MoveMotionStub(
-                    piece=_piece_for_motion(m["key"]),
+            if stub_key not in self._move_vms:
+                _log.debug("MoveMotionVM CREATED %s", stub_key)
+                self._move_vms[stub_key] = MoveMotionVM(
+                    piece_vm=_vm_for_motion(m["key"]),
                     origin=m["origin"],
                     destination=m["destination"],
                     actual_destination=m["actual_dest"],
@@ -122,36 +119,37 @@ class BoardMirror:
                     finish_time=m["finish_time"],
                 )
             else:
-                # update actual_dest in case it changed (blocking piece appeared)
-                self._move_stubs[stub_key].actual_destination = tuple(m["actual_dest"])
-        self._move_stubs = {k: v for k, v in self._move_stubs.items() if k in incoming_move_keys}
+                self._move_vms[stub_key].actual_destination = tuple(m["actual_dest"])
+        self._move_vms = {k: v for k, v in self._move_vms.items() if k in incoming_move_keys}
 
-        incoming_jump_keys = set()
+        # jumps
+        incoming_jump_keys: set[tuple] = set()
         for m in motions.get("jumps", []):
             stub_key = (m["key"], tuple(m["cell"]))
             incoming_jump_keys.add(stub_key)
-            if stub_key not in self._jump_stubs:
-                _log.debug("JumpMotionStub CREATED %s", stub_key)
-                self._jump_stubs[stub_key] = _JumpMotionStub(
-                    piece=_piece_for_motion(m["key"]),
+            if stub_key not in self._jump_vms:
+                _log.debug("JumpMotionVM CREATED %s", stub_key)
+                self._jump_vms[stub_key] = JumpMotionVM(
+                    piece_vm=_vm_for_motion(m["key"]),
                     cell=m["cell"],
-                    finish_time=m.get("finish_time", time_ms + config.JUMP_DURATION),
+                    finish_time=m.get("finish_time", time_ms + JUMP_DURATION),
                 )
-        self._jump_stubs = {k: v for k, v in self._jump_stubs.items() if k in incoming_jump_keys}
+        self._jump_vms = {k: v for k, v in self._jump_vms.items() if k in incoming_jump_keys}
 
-        incoming_cd_keys = set()
+        # cooldowns
+        incoming_cd_keys: set[tuple] = set()
         for m in motions.get("cooldowns", []):
             stub_key = (m["key"], m["rest_type"], m["finish_time"])
             incoming_cd_keys.add(stub_key)
-            if stub_key not in self._cd_stubs:
-                _log.debug("CooldownStub CREATED %s", stub_key)
-                self._cd_stubs[stub_key] = _CooldownStub(
-                    piece=_piece_for_motion(m["key"]),
+            if stub_key not in self._cd_vms:
+                _log.debug("CooldownVM CREATED %s", stub_key)
+                self._cd_vms[stub_key] = CooldownVM(
+                    piece_vm=_vm_for_motion(m["key"]),
                     rest_type=m["rest_type"],
                     start_time=m["start_time"],
                     finish_time=m["finish_time"],
                 )
-        self._cd_stubs = {k: v for k, v in self._cd_stubs.items() if k in incoming_cd_keys}
+        self._cd_vms = {k: v for k, v in self._cd_vms.items() if k in incoming_cd_keys}
 
     def apply_game_over(self, winner: str) -> None:
         self.game_over    = True
@@ -163,26 +161,26 @@ class BoardMirror:
         return [row[:] for row in self._grid]
 
     def active_moves(self) -> list:
-        return list(self._move_stubs.values())
+        return list(self._move_vms.values())
 
     def active_jumps(self) -> list:
-        return list(self._jump_stubs.values())
+        return list(self._jump_vms.values())
 
-    def cooldown_progress(self, piece) -> tuple | None:
-        for stub in self._cd_stubs.values():
-            if stub.piece is piece:
-                duration = (config.LONG_REST_DURATION if stub.rest_type == "long"
-                            else config.SHORT_REST_DURATION)
-                elapsed  = duration - (stub.finish_time - self.current_time)
+    def cooldown_progress(self, piece_vm) -> tuple | None:
+        for cd in self._cd_vms.values():
+            if cd.piece is piece_vm:
+                duration = (LONG_REST_DURATION if cd.rest_type == "long"
+                            else SHORT_REST_DURATION)
+                elapsed  = duration - (cd.finish_time - self.current_time)
                 progress = max(0.0, min(1.0, elapsed / duration))
-                return progress, stub.rest_type
+                return progress, cd.rest_type
         return None
 
-    def get_piece_at(self, cell: tuple) -> Piece:
+    def get_piece_at(self, cell: tuple) -> PieceVM | None:
         r, c = cell
         if not self.is_inside(cell):
-            return Piece.EMPTY
-        return self._grid[r][c] or Piece.EMPTY
+            return None
+        return self._grid[r][c]
 
     def is_inside(self, cell: tuple) -> bool:
         r, c = cell

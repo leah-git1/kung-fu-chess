@@ -7,11 +7,10 @@ class PlayerConnection:
 
     def __init__(self, websocket, color: str, name: str):
         self.websocket = websocket
-        self.color = color          # "w" | "b"
+        self.color = color          
         self.name  = name
 
     async def send(self, msg) -> None:
-        """Send a message dataclass (has .to_json()) over the socket."""
         await self.websocket.send(json.dumps(msg.to_json()))
 
     async def send_raw(self, d: dict) -> None:

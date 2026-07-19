@@ -107,7 +107,7 @@ class GameSession:
                     continue
                 await self._handle(color, msg)
         except Exception:
-            pass  # disconnection handled by app_server
+            pass  
 
     async def _handle(self, color: str, msg) -> None:
         conn = self._players[color]
@@ -137,7 +137,6 @@ class GameSession:
                     time_ms=self._game.current_time,
                 ))
 
-    # ── helpers ───────────────────────────────────────────────────────────────
 
     async def _broadcast(self, msg) -> None:
         for conn in self._players.values():

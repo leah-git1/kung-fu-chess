@@ -43,7 +43,7 @@ class PieceRenderer:
         return drawn
 
     def _draw_piece_at(self, canvas, piece, row, col, game, now_ms, is_jumping):
-        state = self._states.setdefault(id(piece), AnimationState(piece, self._loader))
+        state = self._states.setdefault(id(piece), AnimationState(piece.sprite_key, self._loader))
         folder = gfx_config.JUMP_FOLDER if is_jumping else gfx_config.STATE_TO_FOLDER[piece.state_name]
         state.update(piece.sprite_key, folder, now_ms)
         frame = state.current_frame(now_ms)

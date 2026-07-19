@@ -1,17 +1,16 @@
 """
 Tests for client/network/board_mirror.py
 
-No network, no rendering — pure state machine tests.
+No logic-layer imports — BoardMirror now depends only on shared/ and its own
+view model (PieceVM).
 """
 import sys, os
 _ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-sys.path.insert(0, os.path.join(_ROOT, "logic"))
 sys.path.insert(0, _ROOT)
 sys.path.insert(0, os.path.join(_ROOT, "client"))
 
-import config
-from board.piece import Piece, PieceState
 from client.network.board_mirror import BoardMirror
+from shared.constants import LONG_REST_DURATION, SHORT_REST_DURATION
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -48,7 +47,7 @@ def _jump(key, cell, finish=1000):
 
 def _cd(key, rest_type="long", start=0, finish=None):
     if finish is None:
-        finish = start + (config.LONG_REST_DURATION if rest_type == "long" else config.SHORT_REST_DURATION)
+        finish = start + (LONG_REST_DURATION if rest_type == "long" else SHORT_REST_DURATION)
     return {"key": key, "rest_type": rest_type, "start_time": start, "finish_time": finish}
 
 
@@ -70,20 +69,21 @@ def test_piece_placed_at_correct_cell():
     assert m.get_piece_at((3, 4)).sprite_key == "wR"
 
 
-def test_piece_state_set_from_snapshot():
+def test_piece_state_name_set_from_snapshot():
     m = BoardMirror()
     board = _board_with({(0, 0): "wR"})
     board[0][0]["s"] = "long_rest"
     m.apply_state_update(board, time_ms=0)
-    assert m.get_piece_at((0, 0)).state == PieceState.LONG_REST
+    assert m.get_piece_at((0, 0)).state_name == "long_rest"
 
 
-def test_invalid_state_falls_back_to_idle():
+def test_invalid_state_stored_as_given():
+    # BoardMirror no longer validates state names — it stores whatever the server sends
     m = BoardMirror()
     board = _board_with({(0, 0): "wR"})
     board[0][0]["s"] = "not_a_state"
     m.apply_state_update(board, time_ms=0)
-    assert m.get_piece_at((0, 0)).state == PieceState.IDLE
+    assert m.get_piece_at((0, 0)).state_name == "not_a_state"
 
 
 def test_current_time_updated():
@@ -94,7 +94,7 @@ def test_current_time_updated():
 
 # ── piece identity stability ──────────────────────────────────────────────────
 
-def test_same_piece_object_reused_across_snapshots():
+def test_same_piece_vm_reused_across_snapshots():
     m = BoardMirror()
     board = _board_with({(0, 0): "wR"})
     m.apply_state_update(board, time_ms=0)
@@ -110,7 +110,7 @@ def test_two_pieces_same_type_distinct_objects():
     assert m.get_piece_at((0, 0)) is not m.get_piece_at((0, 1))
 
 
-def test_piece_object_stable_after_state_change():
+def test_piece_vm_stable_after_state_change():
     m = BoardMirror()
     board = _board_with({(0, 0): "wR"})
     m.apply_state_update(board, time_ms=0)
@@ -127,13 +127,13 @@ def test_snapshot_is_a_copy():
     m.apply_state_update(_board_with({(0, 0): "wR"}), time_ms=0)
     snap = m.snapshot()
     snap[0][0] = None
-    assert m.get_piece_at((0, 0)) is not Piece.EMPTY
+    assert m.get_piece_at((0, 0)) is not None
 
 
-def test_get_piece_at_out_of_bounds_returns_empty():
+def test_get_piece_at_out_of_bounds_returns_none():
     m = BoardMirror()
     m.apply_state_update(_empty_board(), time_ms=0)
-    assert m.get_piece_at((9, 9)) is Piece.EMPTY
+    assert m.get_piece_at((9, 9)) is None
 
 
 def test_is_inside_valid():
@@ -227,7 +227,7 @@ def test_cooldown_stub_created():
     board[0][2]["s"] = "long_rest"
     motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR")]}
     m.apply_state_update(board, time_ms=0, motions=motions)
-    assert len(m._cd_stubs) == 1
+    assert len(m._cd_vms) == 1
 
 
 def test_cooldown_stub_not_recreated():
@@ -237,9 +237,9 @@ def test_cooldown_stub_not_recreated():
     cd = _cd("wR", finish=2600)
     motions = {"moves": [], "jumps": [], "cooldowns": [cd]}
     m.apply_state_update(board, time_ms=0, motions=motions)
-    stub1 = list(m._cd_stubs.values())[0]
+    stub1 = list(m._cd_vms.values())[0]
     m.apply_state_update(board, time_ms=50, motions=motions)
-    stub2 = list(m._cd_stubs.values())[0]
+    stub2 = list(m._cd_vms.values())[0]
     assert stub1 is stub2
 
 
@@ -247,8 +247,8 @@ def test_cooldown_progress_at_midpoint():
     m = BoardMirror()
     board = _board_with({(0, 0): "wR"})
     board[0][0]["s"] = "long_rest"
-    half = config.LONG_REST_DURATION // 2
-    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", "long", start=0, finish=config.LONG_REST_DURATION)]}
+    half = LONG_REST_DURATION // 2
+    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", "long", start=0, finish=LONG_REST_DURATION)]}
     m.apply_state_update(board, time_ms=half, motions=motions)
     piece = m.get_piece_at((0, 0))
     progress, rest_type = m.cooldown_progress(piece)
@@ -291,7 +291,7 @@ def test_cooldown_stub_removed_when_gone():
     motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR")]}
     m.apply_state_update(board, time_ms=0, motions=motions)
     m.apply_state_update(_board_with({(0, 2): "wR"}), time_ms=3000, motions=_no_motions())
-    assert m._cd_stubs == {}
+    assert m._cd_vms == {}
 
 
 # ── apply_game_over ───────────────────────────────────────────────────────────

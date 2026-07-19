@@ -39,12 +39,10 @@ class WsClient:
     # ── public API (called from the render thread) ────────────────────────────
 
     def start(self) -> None:
-        """Spin up the background asyncio thread."""
         t = threading.Thread(target=self._run, daemon=True)
         t.start()
 
     def send(self, msg) -> None:
-        """Queue a message dataclass for sending. Safe to call from any thread."""
         payload = msg.to_json()
         if self._loop and self._outbound:
             self._loop.call_soon_threadsafe(self._outbound.put_nowait, payload)
