@@ -31,22 +31,52 @@ def motions_to_json(game) -> dict:
     """Serialise active moves and jumps for client-side animation."""
     moves = [
         {
-            "key":   m.piece.sprite_key,
+            "key":         m.piece.sprite_key,
             "origin":      list(m.origin),
             "destination": list(m.destination),
             "actual_dest": list(m.actual_destination),
+            "start_time":  m.finish_time - _move_duration(m.origin, m.destination),
             "finish_time": m.finish_time,
         }
         for m in game.active_moves()
     ]
     jumps = [
         {
-            "key":  m.piece.sprite_key,
-            "cell": list(m.cell),
+            "key":        m.piece.sprite_key,
+            "cell":       list(m.cell),
+            "finish_time": m.finish_time,
         }
         for m in game.active_jumps()
     ]
     return {"moves": moves, "jumps": jumps}
+
+
+def cooldowns_to_json(game) -> list:
+    """Serialise active cooldowns (CooldownMotion) for client-side progress bars."""
+    from realtime.motion import CooldownMotion
+    import config
+    result = []
+    for m in game._arbiter._motions:
+        if isinstance(m, CooldownMotion):
+            state = m.piece.state.value
+            if state == "long_rest":
+                duration = config.LONG_REST_DURATION
+            elif state == "short_rest":
+                duration = config.SHORT_REST_DURATION
+            else:
+                continue
+            result.append({
+                "key":          m.piece.sprite_key,
+                "rest_type":    "long" if state == "long_rest" else "short",
+                "start_time":   m.finish_time - duration,
+                "finish_time":  m.finish_time,
+            })
+    return result
+
+
+def _move_duration(origin, destination) -> int:
+    import config
+    return max(abs(destination[0] - origin[0]), abs(destination[1] - origin[1])) * config.MOVE_DURATION_PER_CELL
 
 
 def apply_move(msg, game) -> bool:

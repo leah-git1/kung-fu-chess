@@ -27,7 +27,7 @@ import shared.message_types as T
 from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, JumpAckMsg, parse
 
 from server.session.player_connection import PlayerConnection
-from server.protocol.serializer import board_to_json, motions_to_json, apply_move, apply_jump
+from server.protocol.serializer import board_to_json, motions_to_json, apply_move, apply_jump, cooldowns_to_json
 from server.logging.server_logger import log
 
 
@@ -77,8 +77,12 @@ class GameSession:
             self._game.advance_time(TICK_RATE_MS)
             self._event_source.poll(self._game)
             await self._broadcast(StateUpdateMsg(
-                board=[],
+                board=board_to_json(self._game),
                 time_ms=self._game.current_time,
+                motions={
+                    **motions_to_json(self._game),
+                    "cooldowns": cooldowns_to_json(self._game),
+                },
             ))
             if self._game.game_over and not self._game_over_sent:
                 self._game_over_sent = True

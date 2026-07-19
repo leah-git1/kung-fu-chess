@@ -62,6 +62,7 @@ class GameView(BaseView):
         self._controller  = InputController(BoardMapper(gfx_config.CELL_PX))
         self._event_source = GameEventSource(self._renderer.bus)
         self._last_ms     = self._now_ms()
+        self._pending_clock_nudge = 0  # accumulated nudge applied once per tick
 
     def on_exit(self) -> None:
         self._controller.reset()
@@ -72,6 +73,11 @@ class GameView(BaseView):
         now     = self._now_ms()
         elapsed = now - self._last_ms
         self._last_ms = now
+        # Apply the accumulated nudge from all StateUpdateMsgs received this
+        # frame in a single step, capped to ±20 ms so the clock never jumps.
+        if self._pending_clock_nudge:
+            self._game.current_time += max(-20, min(20, self._pending_clock_nudge))
+            self._pending_clock_nudge = 0
         self._game.advance_time(elapsed)
         self._event_source.poll(self._game)
 
@@ -92,9 +98,10 @@ class GameView(BaseView):
                 self._game.request_jump(piece, cell)
 
         elif isinstance(msg, StateUpdateMsg):
-            # time-sync: nudge local clock toward server clock
-            if msg.time_ms and abs(self._game.current_time - msg.time_ms) > 200:
-                self._game.current_time = msg.time_ms
+            # Accumulate drift; applied once per tick so multiple queued
+            # messages cannot compound into a visible clock jump.
+            drift = msg.time_ms - self._game.current_time
+            self._pending_clock_nudge = drift
 
         elif isinstance(msg, GameOverMsg):
             from events.game_events import GameOverEvent
