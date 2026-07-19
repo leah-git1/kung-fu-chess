@@ -1,4 +1,4 @@
-from img import Img
+from graphics.img import Img
 import cv2
 import numpy as np
 
