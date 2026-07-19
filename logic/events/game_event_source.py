@@ -1,4 +1,4 @@
-from graphics.observers.game_events import PieceMovedEvent, PieceCapturedEvent, GameOverEvent
+from events.game_events import PieceMovedEvent, PieceCapturedEvent, GameOverEvent
 import time
 
 

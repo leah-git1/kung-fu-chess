@@ -1,5 +1,5 @@
 import cv2
-from graphics.observers.game_events import PieceCapturedEvent
+from events.game_events import PieceCapturedEvent
 
 
 class ScoreBoard:

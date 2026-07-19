@@ -12,9 +12,9 @@ from graphics.board_renderer import BoardRenderer
 from graphics.img_provider import GameImg, WindowManager
 from graphics.input_adapter import InputAdapter
 from graphics.layout import Layout
-from graphics.observers.event_bus import EventBus
-from graphics.observers.game_event_source import GameEventSource
-from graphics.observers.game_events import GameStartedEvent
+from events.event_bus import EventBus
+from events.game_event_source import GameEventSource
+from events.game_events import GameStartedEvent
 from graphics.observers.moves_log import MovesLog
 from graphics.observers.score_board import ScoreBoard
 from graphics.panels.player_names_panel import PlayerNamesPanel

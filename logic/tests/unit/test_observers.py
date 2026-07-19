@@ -3,9 +3,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from board.piece import Piece
 from board.piece_type import PieceType
-from graphics.observers.event_bus import EventBus
-from graphics.observers.game_events import PieceMovedEvent, PieceCapturedEvent
-from graphics.observers.game_event_source import GameEventSource
+from events.event_bus import EventBus
+from events.game_events import PieceMovedEvent, PieceCapturedEvent
+from events.game_event_source import GameEventSource
 from graphics.observers.score_board import ScoreBoard
 
 

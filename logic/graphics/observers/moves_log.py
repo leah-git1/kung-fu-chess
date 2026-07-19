@@ -1,6 +1,6 @@
 from graphics import gfx_config
 from graphics.img_provider import GameImg
-from graphics.observers.game_events import PieceMovedEvent, PieceCapturedEvent
+from events.game_events import PieceMovedEvent, PieceCapturedEvent
 import cv2
 
 

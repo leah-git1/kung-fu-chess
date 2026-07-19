@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from graphics import gfx_config
-from graphics.observers.game_events import GameStartedEvent
+from events.game_events import GameStartedEvent
 from graphics.panels.panel_action import PanelAction
 
 

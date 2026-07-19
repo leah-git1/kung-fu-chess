@@ -2,10 +2,10 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 import numpy as np
-from graphics.observers.event_bus import EventBus
+from events.event_bus import EventBus
 from graphics.observers.moves_log import MovesLog, _fmt_time, _cell_name
 from graphics.observers.score_board import ScoreBoard
-from graphics.observers.game_events import PieceMovedEvent, PieceCapturedEvent
+from events.game_events import PieceMovedEvent, PieceCapturedEvent
 from graphics.panels.player_names_panel import PlayerNamesPanel
 from graphics.img_provider import GameImg
 import graphics.gfx_config as gfx_config
