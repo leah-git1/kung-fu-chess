@@ -77,6 +77,18 @@ class Game:
     def is_inside(self, cell: tuple) -> bool:
         return self._board.is_inside(*cell)
 
+    def has_piece_at(self, cell: tuple) -> bool:
+        return self._board.get_piece(*cell) is not Piece.EMPTY
+
+    def is_own_piece(self, cell: tuple, color: str) -> bool:
+        p = self._board.get_piece(*cell)
+        return p is not Piece.EMPTY and p.color == color
+
+    def are_same_color(self, cell_a: tuple, cell_b: tuple) -> bool:
+        a = self._board.get_piece(*cell_a)
+        b = self._board.get_piece(*cell_b)
+        return a is not Piece.EMPTY and a.is_same_color(b)
+
     # ------------------------------------------------------------------
     # Internal coordination
     # ------------------------------------------------------------------

@@ -7,7 +7,6 @@ sys.path.insert(0, _CLIENT_DIR)
 sys.path.insert(0, _LOGIC_DIR)
 
 from board.board_parser import BoardParser
-from board.piece import Piece
 from controller.board_mapper import BoardMapper
 from controller.input_controller import InputController
 from game.game import Game
@@ -62,44 +61,37 @@ class GameView(BaseView):
         self._controller  = InputController(BoardMapper(gfx_config.CELL_PX))
         self._event_source = GameEventSource(self._renderer.bus)
         self._last_ms     = self._now_ms()
-        self._pending_clock_nudge = 0  # accumulated nudge applied once per tick
+        self._pending_clock_nudge = 0  
 
     def on_exit(self) -> None:
         self._controller.reset()
 
-    # ── called every frame by GameClientApp before render ─────────────────────
 
     def tick(self) -> None:
         now     = self._now_ms()
         elapsed = now - self._last_ms
         self._last_ms = now
-        # Apply the accumulated nudge from all StateUpdateMsgs received this
-        # frame in a single step, capped to ±20 ms so the clock never jumps.
+        
         if self._pending_clock_nudge:
             self._game.current_time += max(-20, min(20, self._pending_clock_nudge))
             self._pending_clock_nudge = 0
         self._game.advance_time(elapsed)
         self._event_source.poll(self._game)
 
-    # ── server messages ───────────────────────────────────────────────────────
 
     def handle_server_message(self, msg) -> ViewAction | None:
         if isinstance(msg, MoveAckMsg):
-            src   = tuple(msg.from_cell)
-            dst   = tuple(msg.to_cell)
-            piece = self._game.get_piece_at(src)
-            if piece is not Piece.EMPTY:
-                self._game.request_move(piece, src, dst)
+            src = tuple(msg.from_cell)
+            dst = tuple(msg.to_cell)
+            if self._game.has_piece_at(src):
+                self._game.request_move(self._game.get_piece_at(src), src, dst)
 
         elif isinstance(msg, JumpAckMsg):
-            cell  = tuple(msg.cell)
-            piece = self._game.get_piece_at(cell)
-            if piece is not Piece.EMPTY:
-                self._game.request_jump(piece, cell)
+            cell = tuple(msg.cell)
+            if self._game.has_piece_at(cell):
+                self._game.request_jump(self._game.get_piece_at(cell), cell)
 
         elif isinstance(msg, StateUpdateMsg):
-            # Accumulate drift; applied once per tick so multiple queued
-            # messages cannot compound into a visible clock jump.
             drift = msg.time_ms - self._game.current_time
             self._pending_clock_nudge = drift
 
@@ -109,7 +101,6 @@ class GameView(BaseView):
 
         return None
 
-    # ── input ─────────────────────────────────────────────────────────────────
 
     def handle_click(self, x: int, y: int) -> ViewAction | None:
         if self._renderer.game_over_panel.active:
@@ -130,19 +121,17 @@ class GameView(BaseView):
         self._renderer.layout.on_resize(w, h)
 
     def _on_board_click(self, bx: int, by: int, kind: str) -> None:
-        cell  = self._controller._mapper.to_cell(bx, by)
+        cell = self._controller._mapper.to_cell(bx, by)
         if not self._game.is_inside(cell):
             self._controller.reset()
             return
-        piece = self._game.get_piece_at(cell)
-
         if kind == "right_click":
-            if piece is not Piece.EMPTY and piece.color == self._color:
+            if self._game.is_own_piece(cell, self._color):
                 self._ws.send(JumpMsg(cell=list(cell)))
             return
 
         if self._controller.selected is None:
-            if piece is not Piece.EMPTY and piece.color == self._color:
+            if self._game.is_own_piece(cell, self._color):
                 self._controller._selected = cell
             return
 
@@ -151,15 +140,13 @@ class GameView(BaseView):
             self._controller.reset()
             return
 
-        src_piece = self._game.get_piece_at(src)
-        if piece is not Piece.EMPTY and src_piece.is_same_color(piece):
+        if self._game.are_same_color(src, cell):
             self._controller._selected = cell
             return
 
         self._ws.send(MoveMsg(from_cell=list(src), to_cell=list(cell)))
         self._controller.reset()
 
-    # ── render ────────────────────────────────────────────────────────────────
 
     def render(self, canvas) -> None:
         self._renderer.render_frame(canvas, self._game, self._game.current_time,
