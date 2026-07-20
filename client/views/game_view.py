@@ -57,7 +57,9 @@ class GameView(BaseView):
         self._game = Game(board)
 
         self._renderer    = GameRenderer(context.get("white_name", "White"),
-                                         context.get("black_name", "Black"))
+                                         context.get("black_name", "Black"),
+                                         my_name=context.get("my_name", ""),
+                                         my_rating=context.get("my_rating", 0))
         self._controller  = InputController(BoardMapper(gfx_config.CELL_PX))
         self._event_source = GameEventSource(self._renderer.bus)
         self._last_ms     = self._now_ms()

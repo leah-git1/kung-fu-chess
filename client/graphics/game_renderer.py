@@ -17,11 +17,13 @@ class GameRenderer:
     Used by both GraphicsApp (local) and GameView (networked) — no duplication.
     """
 
-    def __init__(self, white_name: str, black_name: str):
+    def __init__(self, white_name: str, black_name: str,
+                 my_name: str = "", my_rating: int = 0):
         self.layout        = Layout()
         self.board_renderer = BoardRenderer(self.layout)
         self.piece_renderer = PieceRenderer(self.layout)
-        self.names_panel    = PlayerNamesPanel(white_name, black_name)
+        self.names_panel    = PlayerNamesPanel(white_name, black_name,
+                                               my_name=my_name, my_rating=my_rating)
 
         self.bus            = EventBus()
         self.moves_log_b    = MovesLog("b", self.bus)

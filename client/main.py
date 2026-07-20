@@ -15,8 +15,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 def main(host: str = None, port: int = None, name: str = "Player"):
     if host:
         from client.game_client_app import GameClientApp
+        from client.auth.shell_login import shell_login
         from shared.constants import DEFAULT_PORT
-        GameClientApp(host=host, port=port or DEFAULT_PORT, player_name=name).run()
+        username, password, register = shell_login()
+        GameClientApp(host=host, port=port or DEFAULT_PORT,
+                      player_name=username, password=password, register=register).run()
     else:
         from client.graphics.app import GraphicsApp
         GraphicsApp().run()

@@ -38,13 +38,14 @@ class HelloMsg:
 class LoginMsg:
     name: str
     password: str
+    register: bool = False
 
     def to_json(self) -> dict:
-        return _base(T.LOGIN, {"name": self.name, "password": self.password})
+        return _base(T.LOGIN, {"name": self.name, "password": self.password, "register": self.register})
 
     @classmethod
     def from_json(cls, d: dict) -> LoginMsg:
-        return cls(name=d["name"], password=d["password"])
+        return cls(name=d["name"], password=d["password"], register=d.get("register", False))
 
 
 @dataclass

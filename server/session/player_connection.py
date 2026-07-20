@@ -5,10 +5,11 @@ import json
 class PlayerConnection:
     """Wraps one WebSocket connection and the color assigned to that player."""
 
-    def __init__(self, websocket, color: str, name: str):
+    def __init__(self, websocket, color: str, name: str, rating: int = 1200):
         self.websocket = websocket
-        self.color = color          
-        self.name  = name
+        self.color  = color
+        self.name   = name
+        self.rating = rating
 
     async def send(self, msg) -> None:
         await self.websocket.send(json.dumps(msg.to_json()))

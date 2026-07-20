@@ -24,14 +24,17 @@ from client.views.view_manager import ViewManager
 from client.views.view_action import ViewAction
 from client.views.connecting_view import ConnectingView
 from client.views.game_view import GameView
-from shared.messages import RoomStateMsg
+from shared.messages import RoomStateMsg, LoginMsg, LoginOkMsg, LoginFailMsg
 from shared.constants import DEFAULT_PORT, PROTOCOL_VERSION
-from shared.messages import LoginMsg
 
 class GameClientApp:
     def __init__(self, host: str, port: int = DEFAULT_PORT,
-                 player_name: str = "Player"):
+                 player_name: str = "Player", password: str = "",
+                 register: bool = False, rating: int = 1200):
         self._player_name = player_name
+        self._password    = password
+        self._register    = register
+        self._rating      = rating
         url = f"ws://{host}:{port}"
 
         self._ws = WsClient(url)
@@ -54,8 +57,7 @@ class GameClientApp:
 
     def run(self) -> None:
         self._ws.start()
-
-        self._ws.send(LoginMsg(name=self._player_name, password=""))
+        self._ws.send(LoginMsg(name=self._player_name, password=self._password, register=self._register))
 
         self._current_view = self._connecting_view
         self._current_view.on_enter({"status": "Connecting to server…"})
@@ -93,6 +95,14 @@ class GameClientApp:
 
 
     def _handle_server_message(self, msg) -> None:
+        if isinstance(msg, LoginOkMsg):
+            self._player_name = msg.name
+            self._rating      = msg.elo
+            return
+        if isinstance(msg, LoginFailMsg):
+            print(f"Auth failed: {msg.reason}")
+            self._window.close()
+            return
         if isinstance(msg, RoomStateMsg) and msg.started:
             players = msg.players
             if len(players) == 2:
@@ -113,6 +123,8 @@ class GameClientApp:
             "color":       self._color,
             "white_name":  self._white_name,
             "black_name":  self._black_name,
+            "my_rating":   self._rating,
+            "my_name":     self._player_name,
         })
         self._current_view = self._game_view
 

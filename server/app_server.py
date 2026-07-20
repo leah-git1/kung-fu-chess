@@ -1,6 +1,5 @@
 from __future__ import annotations
 import asyncio
-import json
 import sys, os
 
 _ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -14,6 +13,8 @@ from shared.constants import DEFAULT_PORT
 from server.session.player_connection import PlayerConnection
 from server.session.game_session import GameSession
 from server.logging.server_logger import log
+from server.auth.auth_handler import authenticate
+from server.db.database import init_db
 
 
 class AppServer:
@@ -24,22 +25,21 @@ class AppServer:
         self._lock = asyncio.Lock()
 
     async def start(self) -> None:
+        init_db()
         log(f"listening on ws://0.0.0.0:{self._port}")
         async with websockets.serve(self._on_connect, "0.0.0.0", self._port):
             await asyncio.Future()
 
     async def _on_connect(self, websocket) -> None:
-        try:
-            raw  = await websocket.recv()
-            data = json.loads(raw)
-            name = data.get("name") or data.get("player_name", "Player")
-        except Exception:
+        result = await authenticate(websocket)
+        if result is None:
             return
+        name, rating = result
 
         async with self._lock:
             if self._waiting is None:
                 done  = asyncio.Event()
-                conn  = PlayerConnection(websocket, color="w", name=name)
+                conn  = PlayerConnection(websocket, color="w", name=name, rating=rating)
                 self._waiting      = conn
                 self._waiting_done = done
                 log(f"{name} connected as White — waiting for Black")
@@ -48,7 +48,7 @@ class AppServer:
                 my_done = done
                 session_to_run = None
             else:
-                black = PlayerConnection(websocket, color="b", name=name)
+                black = PlayerConnection(websocket, color="b", name=name, rating=rating)
                 white = self._waiting
                 done  = self._waiting_done
                 self._waiting      = None

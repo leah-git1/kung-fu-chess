@@ -29,6 +29,7 @@ from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, J
 from server.session.player_connection import PlayerConnection
 from server.protocol.serializer import board_to_json, motions_to_json, apply_move, apply_jump, cooldowns_to_json
 from server.logging.server_logger import log
+from server.rating import rating_service
 
 
 _STARTING_POSITION = """\
@@ -86,11 +87,14 @@ class GameSession:
             ))
             if self._game.game_over and not self._game_over_sent:
                 self._game_over_sent = True
-                await self._broadcast(GameOverMsg(
-                    winner=self._game.winner_color,
-                    reason="king captured",
-                ))
-                log(f"game over — winner: {self._game.winner_color}")
+                winner_color = self._game.winner_color
+                loser_color  = "b" if winner_color == "w" else "w"
+                rating_service.apply_game_result(
+                    self._players[winner_color].name,
+                    self._players[loser_color].name,
+                )
+                await self._broadcast(GameOverMsg(winner=winner_color, reason="king captured"))
+                log(f"game over — winner: {winner_color}")
 
     # ── receive loop ──────────────────────────────────────────────────────────
 
