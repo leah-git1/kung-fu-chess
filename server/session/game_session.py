@@ -19,7 +19,7 @@ sys.path.insert(0, _ROOT)
 from game.game import Game
 from board.board_parser import BoardParser
 
-from shared.constants import TICK_RATE_MS, DISCONNECT_GRACE_S
+from shared.constants import TICK_RATE_MS, DISCONNECT_GRACE_S, STATE_UPDATE_INTERVAL_MS
 from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, JumpAckMsg, OpponentDisconnectedMsg, parse
 
 from server.session.player_connection import PlayerConnection
@@ -27,7 +27,7 @@ from server.protocol.serializer import board_to_json, motions_to_json, apply_mov
 from server.logging.server_logger import log
 from server.rating import rating_service
 
-_STATE_UPDATE_INTERVAL_MS = 200
+_STATE_UPDATE_INTERVAL_MS = STATE_UPDATE_INTERVAL_MS
 
 _STARTING_POSITION = """\
 Board:

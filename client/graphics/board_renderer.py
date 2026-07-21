@@ -68,7 +68,7 @@ class BoardRenderer:
         fscale = 0.40
         thickness = 1
 
-        for i in range(8):
+        for i in range(gfx_config.BOARD_ROWS):
             rank = str(8 - i)
             cy = oy + i * cell + cell // 2
             (tw, th), _ = cv2.getTextSize(rank, font, fscale, thickness)

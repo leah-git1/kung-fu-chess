@@ -90,3 +90,29 @@ MOVE_DURATION_PER_CELL = logic_config.MOVE_DURATION_PER_CELL
 
 
 WINDOW_TITLE = "Kung-Fu Chess"
+
+# ---------------------------------------------------------------------------
+# UI panel geometry
+# ---------------------------------------------------------------------------
+SIDEBAR_NAME_BOX_W      = 130
+SIDEBAR_NAME_BOX_H      = 34
+SIDEBAR_NAME_BOX_GAP    = 6    # gap between name box and top bar
+SIDEBAR_NAME_CHAR_W     = 11   # approximate pixel width per character
+SIDEBAR_SCORE_H         = 30
+
+PANEL_BOX_MAX_W         = 600  # max width for game-over / connecting panels
+PANEL_MARGIN            = 40   # min horizontal margin from window edge
+PANEL_PADDING           = 8    # inner text padding
+
+GAME_OVER_BOX_H         = 220  # panel height without reason text
+GAME_OVER_BOX_H_REASON  = 240  # panel height with reason text
+GAME_OVER_BTN_W         = 180
+GAME_OVER_BTN_H         = 48
+GAME_OVER_BTN_GAP       = 20
+GAME_OVER_BTN_LABEL_Y   = 32   # label Y offset inside button
+GAME_OVER_DIM           = 0.35 # background dim factor
+
+DISCONNECT_OVERLAY_BOTTOM = 30  # px from bottom of window
+
+CONNECTING_BOX_W        = 500
+CONNECTING_BOX_H        = 100

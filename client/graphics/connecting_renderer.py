@@ -10,7 +10,8 @@ class ConnectingRenderer:
         H, W = img.shape[:2]
         gold = gfx_config.COLOR_GOLD[:3]
 
-        box_w, box_h = min(500, W - 40), 100
+        box_w = min(gfx_config.CONNECTING_BOX_W, W - gfx_config.PANEL_MARGIN)
+        box_h = gfx_config.CONNECTING_BOX_H
         bx = (W - box_w) // 2
         by = (H - box_h) // 2
 

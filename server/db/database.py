@@ -1,6 +1,7 @@
 """SQLite connection and raw CRUD for the users table."""
 import sqlite3
 import os
+from shared.constants import ELO_DEFAULT
 
 _DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 
@@ -15,19 +16,22 @@ def init_db() -> None:
     with _connect() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                username      TEXT PRIMARY KEY,
-                password_hash TEXT NOT NULL,
-                rating        INTEGER NOT NULL DEFAULT 1200
+                user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                username      TEXT    NOT NULL UNIQUE,
+                password_hash TEXT    NOT NULL,
+                salt          TEXT    NOT NULL DEFAULT '',
+                rating        INTEGER NOT NULL DEFAULT {ELO_DEFAULT}
             )
         """)
 
 
-def insert_user(username: str, password_hash: str) -> None:
+def insert_user(username: str, password_hash: str) -> int:
     with _connect() as conn:
-        conn.execute(
+        cursor = conn.execute(
             "INSERT INTO users (username, password_hash) VALUES (?, ?)",
             (username, password_hash),
         )
+        return cursor.lastrowid
 
 
 def fetch_user(username: str) -> sqlite3.Row | None:

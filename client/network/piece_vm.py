@@ -26,8 +26,8 @@ class _PieceType:
 
 @dataclass
 class PieceVM:
-    sprite_key: str   # e.g. "wR"
-    state_name: str   # e.g. "idle"
+    sprite_key: str   
+    state_name: str   
 
     @property
     def color(self) -> str:

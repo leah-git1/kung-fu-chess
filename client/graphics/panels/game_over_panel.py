@@ -30,17 +30,18 @@ class GameOverPanel:
         img = canvas.img
         H, W = img.shape[:2]
 
-        img[:] = (img.astype(np.float32) * 0.35).astype(np.uint8)
+        img[:] = (img.astype(np.float32) * gfx_config.GAME_OVER_DIM).astype(np.uint8)
 
-        box_w = min(600, W - 40)
-        box_h = 240 if self._reason else 220
+        box_w = min(gfx_config.PANEL_BOX_MAX_W, W - gfx_config.PANEL_MARGIN)
+        box_h = gfx_config.GAME_OVER_BOX_H_REASON if self._reason else gfx_config.GAME_OVER_BOX_H
         bx = (W - box_w) // 2
         by = (H - box_h) // 2
         gold = gfx_config.COLOR_GOLD[:3]
+        p = gfx_config.PANEL_PADDING
 
         cv2.rectangle(img, (bx, by), (bx + box_w, by + box_h), (20, 20, 20, 255), -1)
         cv2.rectangle(img, (bx, by), (bx + box_w, by + box_h), (*gold, 255), 3)
-        cv2.rectangle(img, (bx + 6, by + 6), (bx + box_w - 6, by + box_h - 6), (*gold, 255), 1)
+        cv2.rectangle(img, (bx + p - 2, by + p - 2), (bx + box_w - p + 2, by + box_h - p + 2), (*gold, 255), 1)
 
         header = "GAME OVER"
         (hw, _), _ = cv2.getTextSize(header, cv2.FONT_HERSHEY_SIMPLEX, 1.1, 2)
@@ -57,18 +58,19 @@ class GameOverPanel:
             cv2.putText(img, self._reason, ((W - rw) // 2, by + 130),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, (180, 180, 180, 255), 1, cv2.LINE_AA)
 
-        btn_w, btn_h = 180, 48
-        gap = 20
-        total_btns_w = btn_w * 2 + gap
-        btn_y = by + box_h - btn_h - 20
+        btn_w   = gfx_config.GAME_OVER_BTN_W
+        btn_h   = gfx_config.GAME_OVER_BTN_H
+        gap     = gfx_config.GAME_OVER_BTN_GAP
+        label_y = gfx_config.GAME_OVER_BTN_LABEL_Y
+        btn_y   = by + box_h - btn_h - gap
 
-        ng_x = (W - total_btns_w) // 2
+        ng_x = (W - btn_w * 2 - gap) // 2
         self._new_game_rect = (ng_x, btn_y, ng_x + btn_w, btn_y + btn_h)
         cv2.rectangle(img, (ng_x, btn_y), (ng_x + btn_w, btn_y + btn_h), (*gold, 255), -1)
         cv2.rectangle(img, (ng_x, btn_y), (ng_x + btn_w, btn_y + btn_h), (20, 20, 20, 255), 2)
         label = "NEW GAME"
         (lw, _), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-        cv2.putText(img, label, (ng_x + (btn_w - lw) // 2, btn_y + 32),
+        cv2.putText(img, label, (ng_x + (btn_w - lw) // 2, btn_y + label_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (20, 20, 20, 255), 2, cv2.LINE_AA)
 
         cl_x = ng_x + btn_w + gap
@@ -77,7 +79,7 @@ class GameOverPanel:
         cv2.rectangle(img, (cl_x, btn_y), (cl_x + btn_w, btn_y + btn_h), (*gold, 255), 2)
         label2 = "CLOSE"
         (lw2, _), _ = cv2.getTextSize(label2, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-        cv2.putText(img, label2, (cl_x + (btn_w - lw2) // 2, btn_y + 32),
+        cv2.putText(img, label2, (cl_x + (btn_w - lw2) // 2, btn_y + label_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (*gold, 255), 2, cv2.LINE_AA)
 
     def on_click(self, x, y) -> PanelAction | None:

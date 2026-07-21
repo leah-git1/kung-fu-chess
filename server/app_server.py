@@ -10,7 +10,7 @@ sys.path.insert(0, _ROOT)
 import websockets
 
 from shared.messages import RoomStateMsg, SearchTimeoutMsg, parse
-from shared.constants import DEFAULT_PORT, MATCH_TIMEOUT_S
+from shared.constants import DEFAULT_PORT, MATCH_TIMEOUT_S, PLAY_REQUEST_TIMEOUT_S, PLAY_REQUEST_TIMEOUT_S
 from server.session.player_connection import PlayerConnection
 from server.session.game_session import GameSession
 from server.logging.server_logger import log
@@ -53,7 +53,7 @@ class AppServer:
 
         # Wait for PlayRequestMsg before entering matchmaking
         try:
-            raw = await asyncio.wait_for(websocket.recv(), timeout=300)
+            raw = await asyncio.wait_for(websocket.recv(), timeout=PLAY_REQUEST_TIMEOUT_S)
             msg = parse(json.loads(raw))
             if msg.__class__.__name__ != "PlayRequestMsg":
                 return

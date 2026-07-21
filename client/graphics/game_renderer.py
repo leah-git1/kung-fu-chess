@@ -68,8 +68,10 @@ class GameRenderer:
         gold  = gfx_config.COLOR_GOLD[:3]
         (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
         x = (W - tw) // 2
-        y = H - 30
-        cv2.rectangle(img, (x - 8, y - th - 6), (x + tw + 8, y + 6), (10, 10, 10, 220), -1)
+        y = H - gfx_config.DISCONNECT_OVERLAY_BOTTOM
+        cv2.rectangle(img, (x - gfx_config.PANEL_PADDING, y - th - gfx_config.PANEL_PADDING),
+                      (x + tw + gfx_config.PANEL_PADDING, y + gfx_config.PANEL_PADDING),
+                      (10, 10, 10, 220), -1)
         cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (*gold, 255), 2, cv2.LINE_AA)
 
     def _render_sidebar(self, canvas, color: str, x: int, log: MovesLog) -> None:
@@ -79,15 +81,15 @@ class GameRenderer:
         name  = (self.names_panel.black_name if color == "b"
                  else self.names_panel.white_name)
 
-        box_w, box_h = 130, 34
+        box_w, box_h = gfx_config.SIDEBAR_NAME_BOX_W, gfx_config.SIDEBAR_NAME_BOX_H
         bx = x + (sw - box_w) // 2
-        by = top_h - box_h - 6
+        by = top_h - box_h - gfx_config.SIDEBAR_NAME_BOX_GAP
         if by >= 0:
             cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (20, 20, 20, 255), -1)
             cv2.rectangle(canvas.img, (bx, by), (bx + box_w, by + box_h), (30, 190, 210, 255), 2)
-            tx = bx + (box_w - len(name) * 11) // 2
+            tx = bx + (box_w - len(name) * gfx_config.SIDEBAR_NAME_CHAR_W) // 2
             cv2.putText(canvas.img, name, (tx, by + box_h - 9),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.65, (220, 220, 220, 255), 1, cv2.LINE_AA)
 
-        self.score_board.render_for(canvas, color, x, top_h, sw, 30)
-        log.render(canvas, x, top_h + 30, sw, log_h - 30)
+        self.score_board.render_for(canvas, color, x, top_h, sw, gfx_config.SIDEBAR_SCORE_H)
+        log.render(canvas, x, top_h + gfx_config.SIDEBAR_SCORE_H, sw, log_h - gfx_config.SIDEBAR_SCORE_H)
