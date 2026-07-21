@@ -8,11 +8,8 @@ Depends only on:
 Zero imports from logic/.
 """
 from __future__ import annotations
-import logging
 from client.network.piece_vm import PieceVM
 from shared.constants import JUMP_DURATION, LONG_REST_DURATION, SHORT_REST_DURATION
-
-_log = logging.getLogger(__name__)
 
 
 # ── motion view models ────────────────────────────────────────────────────────
@@ -54,22 +51,28 @@ class BoardMirror:
         self.winner_color: str | None = None
 
         self._grid: list[list]        = [[None] * self.COLS for _ in range(self.ROWS)]
-        # sprite_key -> [PieceVM, ...]  — stable objects reused across snapshots
-        self._registry: dict[str, list[PieceVM]] = {}
-        # keyed motion VMs — preserved across snapshots, never recreated for the same motion
+
+        # (row, col) -> PieceVM  — one stable object per cell, reused as long as
+        # the same sprite_key occupies that cell.  When a piece moves, the old
+        # cell entry is removed and a new one is created at the destination.
+        self._cell_registry: dict[tuple, PieceVM] = {}
+
+        # keyed motion VMs — preserved across snapshots
         self._move_vms: dict[tuple, MoveMotionVM] = {}   # (key, origin, dest)
         self._jump_vms: dict[tuple, JumpMotionVM] = {}   # (key, cell)
         self._cd_vms:   dict[tuple, CooldownVM]   = {}   # (key, rest_type, finish_time)
 
     # ── piece identity ────────────────────────────────────────────────────────
 
-    def _get_or_create(self, sprite_key: str, index: int) -> PieceVM:
-        bucket = self._registry.setdefault(sprite_key, [])
-        while len(bucket) <= index:
+    def _get_or_create(self, sprite_key: str, row: int, col: int) -> PieceVM:
+        """Return the stable PieceVM for this cell, creating one if needed.
+        If the cell already holds a different piece type, replace it."""
+        cell = (row, col)
+        vm = self._cell_registry.get(cell)
+        if vm is None or vm.sprite_key != sprite_key:
             vm = PieceVM(sprite_key=sprite_key, state_name="idle")
-            _log.debug("PieceVM CREATED id=%d key=%s", id(vm), sprite_key)
-            bucket.append(vm)
-        return bucket[index]
+            self._cell_registry[cell] = vm
+        return vm
 
     # ── main update ───────────────────────────────────────────────────────────
 
@@ -77,9 +80,9 @@ class BoardMirror:
         self.current_time = time_ms
         motions = motions or {"moves": [], "jumps": [], "cooldowns": []}
 
-        # ── rebuild grid, reusing stable PieceVM objects by scan-order index ─
+        # ── rebuild grid with cell-stable PieceVM objects ─────────────────────
         new_grid = [[None] * self.COLS for _ in range(self.ROWS)]
-        counters: dict[str, int] = {}
+        occupied: set[tuple] = set()
 
         for r, row in enumerate(board):
             for c, cell in enumerate(row):
@@ -87,21 +90,30 @@ class BoardMirror:
                     continue
                 key        = cell["k"] if isinstance(cell, dict) else cell
                 state_name = cell.get("s", "idle") if isinstance(cell, dict) else "idle"
-                idx        = counters.get(key, 0)
-                counters[key] = idx + 1
-                vm = self._get_or_create(key, idx)
+                vm = self._get_or_create(key, r, c)
                 vm.state_name = state_name
                 new_grid[r][c] = vm
+                occupied.add((r, c))
+
+        # evict registry entries for cells that are now empty
+        for cell in list(self._cell_registry):
+            if cell not in occupied:
+                del self._cell_registry[cell]
 
         self._grid = new_grid
 
-        # ── motion VMs — counters start fresh, independent of grid ────────────
-        motion_counters: dict[str, int] = {}
+        # ── motion VMs — looked up by cell-stable PieceVM ─────────────────────
 
-        def _vm_for_motion(key: str) -> PieceVM:
-            idx = motion_counters.get(key, 0)
-            motion_counters[key] = idx + 1
-            return self._get_or_create(key, idx)
+        def _vm_for_cell(key: str, cell: tuple) -> PieceVM:
+            """Get the PieceVM currently at a cell, or create a transient one."""
+            r, c = cell
+            existing = self._cell_registry.get(cell)
+            if existing and existing.sprite_key == key:
+                return existing
+            # piece is mid-motion and no longer on the grid — reuse or create
+            vm = PieceVM(sprite_key=key, state_name="moving")
+            self._cell_registry[cell] = vm
+            return vm
 
         # moves
         incoming_move_keys: set[tuple] = set()
@@ -109,9 +121,8 @@ class BoardMirror:
             stub_key = (m["key"], tuple(m["origin"]), tuple(m["destination"]))
             incoming_move_keys.add(stub_key)
             if stub_key not in self._move_vms:
-                _log.debug("MoveMotionVM CREATED %s", stub_key)
                 self._move_vms[stub_key] = MoveMotionVM(
-                    piece_vm=_vm_for_motion(m["key"]),
+                    piece_vm=_vm_for_cell(m["key"], tuple(m["origin"])),
                     origin=m["origin"],
                     destination=m["destination"],
                     actual_destination=m["actual_dest"],
@@ -128,23 +139,25 @@ class BoardMirror:
             stub_key = (m["key"], tuple(m["cell"]))
             incoming_jump_keys.add(stub_key)
             if stub_key not in self._jump_vms:
-                _log.debug("JumpMotionVM CREATED %s", stub_key)
                 self._jump_vms[stub_key] = JumpMotionVM(
-                    piece_vm=_vm_for_motion(m["key"]),
+                    piece_vm=_vm_for_cell(m["key"], tuple(m["cell"])),
                     cell=m["cell"],
                     finish_time=m.get("finish_time", time_ms + JUMP_DURATION),
                 )
         self._jump_vms = {k: v for k, v in self._jump_vms.items() if k in incoming_jump_keys}
 
-        # cooldowns
+        # cooldowns — cell is now provided by the server
         incoming_cd_keys: set[tuple] = set()
         for m in motions.get("cooldowns", []):
             stub_key = (m["key"], m["rest_type"], m["finish_time"])
             incoming_cd_keys.add(stub_key)
             if stub_key not in self._cd_vms:
-                _log.debug("CooldownVM CREATED %s", stub_key)
+                cell = tuple(m["cell"])
+                vm = self._cell_registry.get(cell)
+                if vm is None:
+                    continue
                 self._cd_vms[stub_key] = CooldownVM(
-                    piece_vm=_vm_for_motion(m["key"]),
+                    piece_vm=vm,
                     rest_type=m["rest_type"],
                     start_time=m["start_time"],
                     finish_time=m["finish_time"],

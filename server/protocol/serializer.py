@@ -9,7 +9,6 @@ from __future__ import annotations
 
 
 def board_to_json(game) -> list:
-    # build a lookup: piece id -> cooldown finish_time
     cooldown_finish = {}
     for m in game._arbiter._motions:
         from realtime.motion import CooldownMotion
@@ -55,6 +54,15 @@ def cooldowns_to_json(game) -> list:
     """Serialise active cooldowns (CooldownMotion) for client-side progress bars."""
     from realtime.motion import CooldownMotion
     import config
+
+    # build a reverse map: piece id → (row, col) from the current board snapshot
+    piece_cell = {
+        id(p): (r, c)
+        for r, row in enumerate(game.snapshot())
+        for c, p in enumerate(row)
+        if p is not None
+    }
+
     result = []
     for m in game._arbiter._motions:
         if isinstance(m, CooldownMotion):
@@ -65,8 +73,12 @@ def cooldowns_to_json(game) -> list:
                 duration = config.SHORT_REST_DURATION
             else:
                 continue
+            cell = piece_cell.get(id(m.piece))
+            if cell is None:
+                continue
             result.append({
                 "key":          m.piece.sprite_key,
+                "cell":         list(cell),
                 "rest_type":    "long" if state == "long_rest" else "short",
                 "start_time":   m.finish_time - duration,
                 "finish_time":  m.finish_time,

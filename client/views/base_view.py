@@ -33,3 +33,6 @@ class BaseView:
 
     def render(self, canvas) -> None:
         """Draw this view onto canvas (a GameImg). Called every frame."""
+        
+    def tick(self):
+        pass

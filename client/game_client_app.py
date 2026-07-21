@@ -73,8 +73,7 @@ class GameClientApp:
                 msg = self._ws.inbound.get_nowait()
                 self._handle_server_message(msg)
 
-            if hasattr(self._current_view, "tick"):
-                self._current_view.tick()
+            self._current_view.tick()
 
             for event in self._window.poll_events():
                 if self._dispatch_event(event) == "close":

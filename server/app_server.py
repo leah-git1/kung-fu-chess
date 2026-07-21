@@ -64,8 +64,6 @@ class AppServer:
                 my_done = None
 
         if session_to_run is not None:
-            # Black's handler runs the session
             await session_to_run.run()
         else:
-            # White's handler waits until the session finishes
             await my_done.wait()
