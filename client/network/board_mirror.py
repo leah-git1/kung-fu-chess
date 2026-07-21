@@ -45,10 +45,11 @@ class BoardMirror:
     ROWS = 8
     COLS = 8
 
-    def __init__(self):
+    def __init__(self, on_capture=None):
         self.current_time: int        = 0
         self.game_over: bool          = False
         self.winner_color: str | None = None
+        self._on_capture              = on_capture  # callable(piece_vm, cell, time_ms, by_color)
 
         self._grid: list[list]        = [[None] * self.COLS for _ in range(self.ROWS)]
 
@@ -100,20 +101,27 @@ class BoardMirror:
             if cell not in occupied:
                 del self._cell_registry[cell]
 
+        # ── capture detection ─────────────────────────────────────────────────
+        if self._on_capture:
+            for r in range(self.ROWS):
+                for c in range(self.COLS):
+                    old_vm = self._grid[r][c]
+                    new_vm = new_grid[r][c]
+                    if old_vm is not None and (new_vm is None or new_vm.sprite_key != old_vm.sprite_key):
+                        by_color = new_vm.color if new_vm is not None else None
+                        self._on_capture(old_vm, (r, c), time_ms, by_color)
+
         self._grid = new_grid
 
-        # ── motion VMs — looked up by cell-stable PieceVM ─────────────────────
+        # ── motion VMs — use registry for pieces still on grid, transient otherwise ──
 
-        def _vm_for_cell(key: str, cell: tuple) -> PieceVM:
-            """Get the PieceVM currently at a cell, or create a transient one."""
-            r, c = cell
+        def _vm_for_motion(key: str, cell: tuple) -> PieceVM:
+            """Get PieceVM for a motion — from registry if still on grid, else transient.
+            Never writes into _cell_registry to avoid corrupting the grid."""
             existing = self._cell_registry.get(cell)
             if existing and existing.sprite_key == key:
                 return existing
-            # piece is mid-motion and no longer on the grid — reuse or create
-            vm = PieceVM(sprite_key=key, state_name="moving")
-            self._cell_registry[cell] = vm
-            return vm
+            return PieceVM(sprite_key=key, state_name="moving")
 
         # moves
         incoming_move_keys: set[tuple] = set()
@@ -122,7 +130,7 @@ class BoardMirror:
             incoming_move_keys.add(stub_key)
             if stub_key not in self._move_vms:
                 self._move_vms[stub_key] = MoveMotionVM(
-                    piece_vm=_vm_for_cell(m["key"], tuple(m["origin"])),
+                    piece_vm=_vm_for_motion(m["key"], tuple(m["origin"])),
                     origin=m["origin"],
                     destination=m["destination"],
                     actual_destination=m["actual_dest"],
@@ -140,7 +148,7 @@ class BoardMirror:
             incoming_jump_keys.add(stub_key)
             if stub_key not in self._jump_vms:
                 self._jump_vms[stub_key] = JumpMotionVM(
-                    piece_vm=_vm_for_cell(m["key"], tuple(m["cell"])),
+                    piece_vm=_vm_for_motion(m["key"], tuple(m["cell"])),
                     cell=m["cell"],
                     finish_time=m.get("finish_time", time_ms + JUMP_DURATION),
                 )

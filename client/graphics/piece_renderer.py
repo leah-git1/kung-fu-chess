@@ -6,10 +6,17 @@ import numpy as np
 
 
 class PieceRenderer:
-    def __init__(self, layout, loader=None):
+    def __init__(self, layout, loader=None, player_color: str = "w"):
         self._layout = layout
         self._loader = loader or SpriteLoader()
         self._states = {}
+        self._flip   = (player_color == "b")
+
+    def _view_rc(self, row, col):
+        """Convert server row/col to screen row/col, flipping for black."""
+        if self._flip:
+            return 7 - row, 7 - col
+        return row, col
 
     def render(self, canvas, game, now_ms):
         board_grid = game.snapshot()
@@ -22,7 +29,8 @@ class PieceRenderer:
             for c, piece in enumerate(row):
                 if piece is None or id(piece) in skip_ids:
                     continue
-                self._draw_piece_at(canvas, piece, r, c, game, now_ms, is_jumping=False)
+                vr, vc = self._view_rc(r, c)
+                self._draw_piece_at(canvas, piece, vr, vc, game, now_ms, is_jumping=False)
 
     def _draw_active_motions(self, canvas, game, now_ms, jumping_ids):
         drawn = set()
@@ -33,12 +41,15 @@ class PieceRenderer:
             start = motion.finish_time - full_duration
             elapsed = now_ms - start
             t = 0.0 if actual_duration <= 0 else max(0.0, min(1.0, elapsed / actual_duration))
-            row = motion.origin[0] + (actual[0] - motion.origin[0]) * t
-            col = motion.origin[1] + (actual[1] - motion.origin[1]) * t
+            sr, sc = self._view_rc(motion.origin[0], motion.origin[1])
+            ar, ac = self._view_rc(actual[0], actual[1])
+            row = sr + (ar - sr) * t
+            col = sc + (ac - sc) * t
             self._draw_piece_at(canvas, motion.piece, row, col, game, now_ms, is_jumping=False)
             drawn.add(id(motion.piece))
         for motion in game.active_jumps():
-            self._draw_piece_at(canvas, motion.piece, motion.cell[0], motion.cell[1], game, now_ms, is_jumping=True)
+            vr, vc = self._view_rc(motion.cell[0], motion.cell[1])
+            self._draw_piece_at(canvas, motion.piece, vr, vc, game, now_ms, is_jumping=True)
             drawn.add(id(motion.piece))
         return drawn
 

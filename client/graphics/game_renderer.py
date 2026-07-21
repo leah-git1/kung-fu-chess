@@ -18,10 +18,11 @@ class GameRenderer:
     """
 
     def __init__(self, white_name: str, black_name: str,
-                 my_name: str = "", my_rating: int = 0):
+                 my_name: str = "", my_rating: int = 0, player_color: str = "w"):
         self.layout        = Layout()
         self.board_renderer = BoardRenderer(self.layout)
-        self.piece_renderer = PieceRenderer(self.layout)
+        self.piece_renderer = PieceRenderer(self.layout, player_color=player_color)
+        self._flip          = (player_color == "b")
         self.names_panel    = PlayerNamesPanel(white_name, black_name,
                                                my_name=my_name, my_rating=my_rating)
 
@@ -32,7 +33,8 @@ class GameRenderer:
         self.game_over_panel = GameOverPanel(self.bus, white_name, black_name)
 
     def render_frame(self, canvas: GameImg, game, now_ms: int,
-                     selected_cell=None, overlay=None) -> None:
+                     selected_cell=None, overlay=None,
+                     disconnect_countdown: int | None = None) -> None:
         """
         Draw a complete game frame onto canvas.
 
@@ -43,7 +45,9 @@ class GameRenderer:
         W = self.layout.window_px_w
 
         self.names_panel.render(canvas, 0, 0, W, gfx_config.TOP_BAR_H)
-        self.board_renderer.render(canvas, selected_cell=selected_cell)
+        view_selected = (7 - selected_cell[0], 7 - selected_cell[1]) \
+            if selected_cell and self._flip else selected_cell
+        self.board_renderer.render(canvas, selected_cell=view_selected)
         self.piece_renderer.render(canvas, game, now_ms)
         self._render_sidebar(canvas, "b", self.layout.left_sidebar_x, self.moves_log_b)
         self._render_sidebar(canvas, "w", self.layout.right_sidebar_x, self.moves_log_w)
@@ -52,6 +56,21 @@ class GameRenderer:
             overlay.render(canvas)
         elif self.game_over_panel.active:
             self.game_over_panel.render(canvas)
+
+        if disconnect_countdown is not None:
+            self._render_disconnect_overlay(canvas, disconnect_countdown)
+
+    def _render_disconnect_overlay(self, canvas: GameImg, seconds: int) -> None:
+        import cv2
+        img   = canvas.img
+        H, W  = img.shape[:2]
+        text  = f"Opponent disconnected — forfeiting in {seconds}s"
+        gold  = gfx_config.COLOR_GOLD[:3]
+        (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+        x = (W - tw) // 2
+        y = H - 30
+        cv2.rectangle(img, (x - 8, y - th - 6), (x + tw + 8, y + 6), (10, 10, 10, 220), -1)
+        cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (*gold, 255), 2, cv2.LINE_AA)
 
     def _render_sidebar(self, canvas, color: str, x: int, log: MovesLog) -> None:
         sw    = gfx_config.SIDEBAR_PX_W

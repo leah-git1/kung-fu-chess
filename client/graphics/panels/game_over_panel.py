@@ -10,26 +10,30 @@ class GameOverPanel:
 
     def __init__(self, bus, white_name: str, black_name: str):
         self._new_game_rect = None
-        self._close_rect = None
-        self._winner_name = None
+        self._close_rect    = None
+        self._winner_name   = None
+        self._reason        = ""
         self._names = {"w": white_name, "b": black_name}
         bus.subscribe(GameOverEvent, self._on_game_over)
 
     def _on_game_over(self, event):
         self._winner_name = self._names.get(event.winner_color, event.winner_color)
 
+    def set_reason(self, reason: str) -> None:
+        self._reason = reason.replace("_", " ")
+
     @property
     def active(self):
         return self._winner_name is not None
 
     def render(self, canvas) -> None:
-        winner_name = self._winner_name
         img = canvas.img
         H, W = img.shape[:2]
 
         img[:] = (img.astype(np.float32) * 0.35).astype(np.uint8)
 
-        box_w, box_h = min(600, W - 40), 220
+        box_w = min(600, W - 40)
+        box_h = 240 if self._reason else 220
         bx = (W - box_w) // 2
         by = (H - box_h) // 2
         gold = gfx_config.COLOR_GOLD[:3]
@@ -43,10 +47,15 @@ class GameOverPanel:
         cv2.putText(img, header, ((W - hw) // 2, by + 50),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.1, (*gold, 255), 2, cv2.LINE_AA)
 
-        winner_text = f"{winner_name} wins!"
+        winner_text = f"{self._winner_name} wins!"
         (ww, _), _ = cv2.getTextSize(winner_text, cv2.FONT_HERSHEY_SIMPLEX, 1.2, 2)
         cv2.putText(img, winner_text, ((W - ww) // 2, by + 100),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.2, (220, 220, 220, 255), 2, cv2.LINE_AA)
+
+        if self._reason:
+            (rw, _), _ = cv2.getTextSize(self._reason, cv2.FONT_HERSHEY_SIMPLEX, 0.65, 1)
+            cv2.putText(img, self._reason, ((W - rw) // 2, by + 130),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (180, 180, 180, 255), 1, cv2.LINE_AA)
 
         btn_w, btn_h = 180, 48
         gap = 20

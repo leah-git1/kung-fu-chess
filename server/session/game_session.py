@@ -19,8 +19,8 @@ sys.path.insert(0, _ROOT)
 from game.game import Game
 from board.board_parser import BoardParser
 
-from shared.constants import TICK_RATE_MS
-from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, JumpAckMsg, parse
+from shared.constants import TICK_RATE_MS, DISCONNECT_GRACE_S
+from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, JumpAckMsg, OpponentDisconnectedMsg, parse
 
 from server.session.player_connection import PlayerConnection
 from server.protocol.serializer import board_to_json, motions_to_json, apply_move, apply_jump, cooldowns_to_json
@@ -107,6 +107,35 @@ class GameSession:
                 await self._handle(color, msg)
         except Exception:
             pass
+        # socket closed — start disconnect countdown if game still running
+        if not self._game_over_sent:
+            await self._disconnect_countdown(color)
+
+    async def _disconnect_countdown(self, disconnected_color: str) -> None:
+        """Counts down DISCONNECT_GRACE_S seconds, notifying the opponent each second.
+        If the player does not reconnect in time, they forfeit.
+        Reconnect support can be added here in the future by checking a reconnect flag."""
+        other_color = "b" if disconnected_color == "w" else "w"
+        other_conn  = self._players[other_color]
+        log(f"{self._players[disconnected_color].name} disconnected — {DISCONNECT_GRACE_S}s grace")
+        for remaining in range(DISCONNECT_GRACE_S, 0, -1):
+            if self._game_over_sent:
+                return
+            try:
+                await other_conn.send(OpponentDisconnectedMsg(grace_s=remaining))
+            except Exception:
+                return
+            await asyncio.sleep(1)
+        if not self._game_over_sent:
+            self._game_over_sent = True
+            winner = other_color
+            loser  = disconnected_color
+            rating_service.apply_game_result(
+                self._players[winner].name,
+                self._players[loser].name,
+            )
+            await self._broadcast(GameOverMsg(winner=winner, reason="opponent disconnected"))
+            log(f"game over — {self._players[loser].name} forfeited by disconnect")
 
     async def _handle(self, color: str, msg) -> None:
         conn = self._players[color]

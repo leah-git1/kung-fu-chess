@@ -66,18 +66,29 @@ class Img:
         h, w = self.img.shape[:2]
         H, W = other_img.img.shape[:2]
 
-        if y + h > H or x + w > W:
-            raise ValueError("Logo does not fit at the specified position.")
+        # clip to canvas bounds
+        src_x0 = max(0, -x)
+        src_y0 = max(0, -y)
+        dst_x0 = max(0, x)
+        dst_y0 = max(0, y)
+        dst_x1 = min(W, x + w)
+        dst_y1 = min(H, y + h)
+        if dst_x1 <= dst_x0 or dst_y1 <= dst_y0:
+            return
+        src_x1 = src_x0 + (dst_x1 - dst_x0)
+        src_y1 = src_y0 + (dst_y1 - dst_y0)
 
-        roi = other_img.img[y:y + h, x:x + w]
+        src_crop = self.img[src_y0:src_y1, src_x0:src_x1]
+        roi = other_img.img[dst_y0:dst_y1, dst_x0:dst_x1]
 
         if self.img.shape[2] == 4:
-            b, g, r, a = cv2.split(self.img)
+            b, g, r, a = cv2.split(src_crop)
             mask = a / 255.0
             for c in range(3):
-                roi[..., c] = (1 - mask) * roi[..., c] + mask * self.img[..., c]
+                roi[..., c] = (1 - mask) * roi[..., c] + mask * src_crop[..., c]
+            other_img.img[dst_y0:dst_y1, dst_x0:dst_x1] = roi
         else:
-            other_img.img[y:y + h, x:x + w] = self.img
+            other_img.img[dst_y0:dst_y1, dst_x0:dst_x1] = src_crop
 
     def put_text(self, txt, x, y, font_size, color=(255, 255, 255, 255), thickness=1):
         if self.img is None:
