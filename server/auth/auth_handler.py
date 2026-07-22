@@ -26,10 +26,12 @@ async def authenticate(websocket) -> tuple[str, int] | None:
         try:
             user = auth_service.register(msg.name, msg.password) if msg.register \
                 else auth_service.login(msg.name, msg.password)
+            log(f"auth ok: {user.username} (ELO {user.rating}) {'registered' if msg.register else 'logged in'}")
             await websocket.send(json.dumps(LoginOkMsg(name=user.username, elo=user.rating).to_json()))
             return user.username, user.rating
         except AuthError as e:
+            log(f"auth failed for '{msg.name}': {e}", level="warning")
             await websocket.send(json.dumps(LoginFailMsg(reason=str(e)).to_json()))
         except DatabaseError as e:
-            log(f"database error during auth: {e}")
+            log(f"database error during auth: {e}", level="error")
             return None

@@ -24,6 +24,7 @@ from client.views.game_view import GameView
 from shared.messages import RoomStateMsg, RoomErrorMsg, LoginMsg, LoginOkMsg, LoginFailMsg, SearchTimeoutMsg
 from shared.constants import DEFAULT_PORT
 from shared.enums import Color
+from client.logging.client_logger import log
 
 
 class GameClientApp:
@@ -59,6 +60,7 @@ class GameClientApp:
 
     def run(self) -> None:
         self._ws.start()
+        log(f"connecting to server as {self._player_name}")
         self._ws.send(LoginMsg(name=self._player_name, password=self._password,
                                register=self._register))
         self._current_view.on_enter({"status": "Connecting to server…"})
@@ -100,10 +102,12 @@ class GameClientApp:
         if isinstance(msg, LoginOkMsg):
             self._player_name = msg.name
             self._rating      = msg.elo
+            log(f"logged in as {msg.name} (ELO {msg.elo})")
             self._switch_to_home()
             return
 
         if isinstance(msg, LoginFailMsg):
+            log(f"login failed: {msg.reason}", level="warning")
             print(f"Auth failed: {msg.reason}")
             self._window.close()
             return
@@ -115,17 +119,20 @@ class GameClientApp:
                 self._black_name = players[1]
             self._color = Color(msg.color) if msg.color else ""
             self._room_id = msg.room_id
+            role = msg.color if msg.color else "spectator"
+            log(f"game starting — room={msg.room_id} role={role} players={players}")
             self._switch_to_game()
             return
 
         if isinstance(msg, RoomStateMsg) and not msg.started and msg.room_id:
-            # Creator receives started=False with the generated room_id
             self._room_id = msg.room_id
+            log(f"room created — id={msg.room_id}, waiting for opponent")
             if self._current_view is self._room_waiting_view:
                 self._room_waiting_view.handle_server_message(msg)
             return
 
         if isinstance(msg, RoomErrorMsg):
+            log(f"room error: {msg.reason}", level="warning")
             self._switch_to_home({"status_msg": msg.reason})
             return
 
@@ -152,11 +159,13 @@ class GameClientApp:
 
     def _switch_to_matchmaking(self) -> None:
         self._current_view.on_exit()
+        log("searching for opponent (matchmaking)")
         self._matchmaking_view.on_enter({})
         self._current_view = self._matchmaking_view
 
     def _switch_to_game(self) -> None:
         self._current_view.on_exit()
+        log(f"entering game view — room={self._room_id}")
         self._game_view.on_enter({
             "ws_client":   self._ws,
             "color":       self._color,

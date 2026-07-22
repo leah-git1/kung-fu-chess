@@ -25,6 +25,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed, WebSocketException
 
 from shared.messages import parse
+from client.logging.client_logger import log
 
 
 class WsClient:
@@ -62,6 +63,7 @@ class WsClient:
         try:
             async with websockets.connect(self._url) as ws:
                 self.connected = True
+                log(f"connected to {self._url}")
                 self._flush_pending_outbound()
                 await asyncio.gather(
                     self._receive_loop(ws),
@@ -70,6 +72,7 @@ class WsClient:
         except (OSError, WebSocketException) as e:
             self.error = str(e)
             self.connected = False
+            log(f"connection failed: {e}", level="error")
 
     def _flush_pending_outbound(self) -> None:
         if self._outbound is None:
@@ -81,14 +84,17 @@ class WsClient:
         async for raw in ws:
             try:
                 msg = parse(json.loads(raw))
+                log(f"recv: {msg}", level="debug")
                 self.inbound.put_nowait(msg)
-            except (json.JSONDecodeError, ValueError):
-                pass
+            except (json.JSONDecodeError, ValueError) as e:
+                log(f"recv parse error: {e}", level="warning")
 
     async def _send_loop(self, ws) -> None:
         while True:
             d = await self._outbound.get()
             try:
+                log(f"send: {d}", level="debug")
                 await ws.send(json.dumps(d))
             except ConnectionClosed:
+                log("connection closed while sending", level="warning")
                 break

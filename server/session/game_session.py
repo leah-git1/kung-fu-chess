@@ -110,12 +110,13 @@ class GameSession:
                 try:
                     msg = parse(json.loads(raw))
                 except (json.JSONDecodeError, ValueError) as e:
+                    log(f"parse error from {conn.name}: {e}", level="warning")
                     await conn.send(ErrorMsg(reason=str(e)))
                     continue
                 try:
                     await self._handle(color, msg)
                 except Exception as e:
-                    log(f"unexpected error handling message from {conn.name}: {e}")
+                    log(f"unexpected error handling message from {conn.name}: {e}", level="error")
         except ConnectionClosed:
             pass
         # socket closed — start disconnect countdown if game still running
