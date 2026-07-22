@@ -2,6 +2,7 @@ from board.piece import Piece, PieceState
 from board.piece_type import PieceType
 from realtime.motion import MoveMotion, JumpMotion, CooldownMotion
 import config
+from config import RestType
 
 
 class RealTimeArbiter:
@@ -65,16 +66,16 @@ class RealTimeArbiter:
         """Returns (progress 0→1, rest_type 'long'|'short') for a resting piece, or None."""
         for m in self._motions:
             if isinstance(m, CooldownMotion) and m.piece is piece:
-                state = piece.state.value
-                if state == "long_rest":
+                state = piece.state
+                if state == PieceState.LONG_REST:
                     duration = config.LONG_REST_DURATION
-                elif state == "short_rest":
+                elif state == PieceState.SHORT_REST:
                     duration = config.SHORT_REST_DURATION
                 else:
                     return None
                 elapsed = duration - (m.finish_time - self._current_time)
                 progress = max(0.0, min(1.0, elapsed / duration))
-                rest_type = "long" if state == "long_rest" else "short"
+                rest_type = RestType.LONG if state == PieceState.LONG_REST else RestType.SHORT
                 return progress, rest_type
         return None
 

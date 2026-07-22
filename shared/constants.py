@@ -1,3 +1,15 @@
+# -- Game over reasons --------------------------------------------------------
+class GameOverReason:
+    KING_CAPTURED         = "king captured"
+    OPPONENT_DISCONNECTED = "opponent disconnected"
+
+
+# -- Room IDs -----------------------------------------------------------------
+class RoomId:
+    MAIN = "main"
+
+
+
 # -- Network ------------------------------------------------------------------
 DEFAULT_PORT             = 5555
 PROTOCOL_VERSION         = 1

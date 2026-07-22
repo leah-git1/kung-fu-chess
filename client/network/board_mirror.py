@@ -49,7 +49,7 @@ class BoardMirror:
         self.current_time: int        = 0
         self.game_over: bool          = False
         self.winner_color: str | None = None
-        self._on_capture              = on_capture  # callable(piece_vm, cell, time_ms, by_color)
+        self._on_capture              = on_capture
 
         self._grid: list[list]        = [[None] * self.COLS for _ in range(self.ROWS)]
 
@@ -101,15 +101,28 @@ class BoardMirror:
             if cell not in occupied:
                 del self._cell_registry[cell]
 
-        # ── capture detection ─────────────────────────────────────────────────
+        # ── capture detection (count-based: only fire when a sprite_key disappears) ──
         if self._on_capture:
-            for r in range(self.ROWS):
-                for c in range(self.COLS):
-                    old_vm = self._grid[r][c]
-                    new_vm = new_grid[r][c]
-                    if old_vm is not None and (new_vm is None or new_vm.sprite_key != old_vm.sprite_key):
-                        by_color = new_vm.color if new_vm is not None else None
-                        self._on_capture(old_vm, (r, c), time_ms, by_color)
+            old_counts: dict[str, list[tuple]] = {}
+            for r, row in enumerate(self._grid):
+                for c, vm in enumerate(row):
+                    if vm is not None:
+                        old_counts.setdefault(vm.sprite_key, []).append((r, c))
+
+            new_counts: dict[str, int] = {}
+            for r, row in enumerate(new_grid):
+                for c, vm in enumerate(row):
+                    if vm is not None:
+                        new_counts[vm.sprite_key] = new_counts.get(vm.sprite_key, 0) + 1
+
+            for key, old_cells in old_counts.items():
+                lost = len(old_cells) - new_counts.get(key, 0)
+                for i in range(lost):
+                    at_cell = old_cells[i]
+                    vm = self._grid[at_cell[0]][at_cell[1]]
+                    by_vm = new_grid[at_cell[0]][at_cell[1]]
+                    self._on_capture(vm, at_cell, time_ms,
+                                     by_vm.color if by_vm is not None else None)
 
         self._grid = new_grid
 

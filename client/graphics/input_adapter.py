@@ -1,5 +1,6 @@
 from controller.input_controller import InputController
 from graphics.layout import Layout
+from graphics import gfx_config
 
 class InputAdapter:
     def __init__(self, controller: InputController, layout: Layout, game):
@@ -10,9 +11,9 @@ class InputAdapter:
         if board_pixel is None:
             return
         x, y = board_pixel
-        if kind == "left_click":
+        if kind == gfx_config.EventType.LEFT_CLICK:
             self._controller.on_click(x, y, self._game)
-        elif kind == "right_click":
+        elif kind == gfx_config.EventType.RIGHT_CLICK:
             self._controller.on_jump(x, y, self._game)
 
     def on_window_resized(self, new_width, new_height):

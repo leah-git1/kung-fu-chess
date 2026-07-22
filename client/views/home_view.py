@@ -9,6 +9,7 @@ from client.views.base_view import BaseView
 from client.views.view_action import ViewAction
 from graphics.home_renderer import HomeRenderer
 from shared.messages import PlayRequestMsg
+from shared.enums import PlayMode
 
 
 class HomeView(BaseView):
@@ -34,7 +35,7 @@ class HomeView(BaseView):
         if self._btn_rect:
             bx, by, bw, bh = self._btn_rect
             if bx <= x <= bx + bw and by <= y <= by + bh:
-                self._ws.send(PlayRequestMsg(mode="ranked"))
+                self._ws.send(PlayRequestMsg(mode=PlayMode.RANKED.value))
                 return ViewAction.GOTO_MATCHMAKING
         return None
 

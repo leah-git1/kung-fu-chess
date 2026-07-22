@@ -13,7 +13,6 @@ sys.path.insert(0, _LOGIC_DIR)
 
 from graphics import gfx_config
 from graphics.img_provider import GameImg, WindowManager
-
 from client.network.ws_client import WsClient
 from client.views.view_action import ViewAction
 from client.views.connecting_view import ConnectingView
@@ -22,6 +21,7 @@ from client.views.matchmaking_view import MatchmakingView
 from client.views.game_view import GameView
 from shared.messages import RoomStateMsg, LoginMsg, LoginOkMsg, LoginFailMsg, SearchTimeoutMsg
 from shared.constants import DEFAULT_PORT
+from shared.enums import Color
 
 
 class GameClientApp:
@@ -47,7 +47,7 @@ class GameClientApp:
             gfx_config.WINDOW_PX_H,
         )
 
-        self._color      = "w"
+        self._color      = Color.WHITE
         self._white_name = "White"
         self._black_name = "Black"
         self._current_view = self._connecting_view
@@ -106,7 +106,7 @@ class GameClientApp:
                 self._white_name = players[0]
                 self._black_name = players[1]
             if msg.color:
-                self._color = msg.color
+                self._color = Color(msg.color)
             self._switch_to_game()
             return
 
@@ -162,16 +162,16 @@ class GameClientApp:
 
     def _dispatch_event(self, event: dict):
         kind = event["type"]
-        if kind == "resize":
+        if kind == gfx_config.EventType.RESIZE:
             if hasattr(self._current_view, "handle_resize"):
                 self._current_view.handle_resize(event["width"], event["height"])
-        elif kind == "left_click":
+        elif kind == gfx_config.EventType.LEFT_CLICK:
             action = self._current_view.handle_click(event["x"], event["y"])
             if action == ViewAction.QUIT:
                 return "close"
             if action:
                 self._switch(action)
-        elif kind == "right_click":
+        elif kind == gfx_config.EventType.RIGHT_CLICK:
             if hasattr(self._current_view, "handle_right_click"):
                 self._current_view.handle_right_click(event["x"], event["y"])
 

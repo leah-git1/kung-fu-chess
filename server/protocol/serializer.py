@@ -6,6 +6,7 @@ apply_move     : MoveMsg  + Game → bool
 apply_jump     : JumpMsg  + Game → bool
 """
 from __future__ import annotations
+from shared.enums import RestType
 
 
 def board_to_json(game) -> list:
@@ -67,9 +68,10 @@ def cooldowns_to_json(game) -> list:
     for m in game._arbiter._motions:
         if isinstance(m, CooldownMotion):
             state = m.piece.state.value
-            if state == "long_rest":
+            from board.piece import PieceState
+            if state == PieceState.LONG_REST.value:
                 duration = config.LONG_REST_DURATION
-            elif state == "short_rest":
+            elif state == PieceState.SHORT_REST.value:
                 duration = config.SHORT_REST_DURATION
             else:
                 continue
@@ -79,7 +81,7 @@ def cooldowns_to_json(game) -> list:
             result.append({
                 "key":          m.piece.sprite_key,
                 "cell":         list(cell),
-                "rest_type":    "long" if state == "long_rest" else "short",
+                "rest_type":    RestType.LONG.value if state == PieceState.LONG_REST.value else RestType.SHORT.value,
                 "start_time":   m.finish_time - duration,
                 "finish_time":  m.finish_time,
             })

@@ -19,13 +19,15 @@ sys.path.insert(0, _ROOT)
 from game.game import Game
 from board.board_parser import BoardParser
 
-from shared.constants import TICK_RATE_MS, DISCONNECT_GRACE_S, STATE_UPDATE_INTERVAL_MS
-from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, JumpAckMsg, OpponentDisconnectedMsg, parse
+from shared.constants import TICK_RATE_MS, DISCONNECT_GRACE_S, STATE_UPDATE_INTERVAL_MS, GameOverReason
+from shared.enums import Color
+from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, JumpAckMsg, OpponentDisconnectedMsg, parse, MoveMsg, JumpMsg
 
 from server.session.player_connection import PlayerConnection
 from server.protocol.serializer import board_to_json, motions_to_json, apply_move, apply_jump, cooldowns_to_json
 from server.logging.server_logger import log
 from server.rating import rating_service
+from websockets.exceptions import ConnectionClosed
 
 _STATE_UPDATE_INTERVAL_MS = STATE_UPDATE_INTERVAL_MS
 
@@ -44,7 +46,7 @@ Commands:"""
 
 class GameSession:
     def __init__(self, white: PlayerConnection, black: PlayerConnection, on_done=None):
-        self._players: dict[str, PlayerConnection] = {"w": white, "b": black}
+        self._players: dict[str, PlayerConnection] = {Color.WHITE: white, Color.BLACK: black}
         self._on_done = on_done
         board = BoardParser().parse(_STARTING_POSITION.splitlines())
         self._game = Game(board)
@@ -52,12 +54,12 @@ class GameSession:
         self._ms_since_update = 0
 
     async def run(self) -> None:
-        log(f"session started  w={self._players['w'].name}  b={self._players['b'].name}")
+        log(f"session started  w={self._players[Color.WHITE].name}  b={self._players[Color.BLACK].name}")
         try:
             await asyncio.gather(
                 self._tick_loop(),
-                self._receive_loop("w"),
-                self._receive_loop("b"),
+                self._receive_loop(Color.WHITE),
+                self._receive_loop(Color.BLACK),
             )
         finally:
             if self._on_done:
@@ -71,13 +73,13 @@ class GameSession:
 
             if self._game.game_over:
                 self._game_over_sent = True
-                winner = self._game.winner_color
-                loser  = "b" if winner == "w" else "w"
+                winner = Color(self._game.winner_color)
+                loser  = Color.BLACK if winner == Color.WHITE else Color.WHITE
                 rating_service.apply_game_result(
                     self._players[winner].name,
                     self._players[loser].name,
                 )
-                await self._broadcast(GameOverMsg(winner=winner, reason="king captured"))
+                await self._broadcast(GameOverMsg(winner=winner.value, reason=GameOverReason.KING_CAPTURED))
                 log(f"game over — winner: {winner}")
                 return
 
@@ -101,11 +103,14 @@ class GameSession:
                     break
                 try:
                     msg = parse(json.loads(raw))
-                except (ValueError, KeyError) as e:
+                except (json.JSONDecodeError, ValueError) as e:
                     await conn.send(ErrorMsg(reason=str(e)))
                     continue
-                await self._handle(color, msg)
-        except Exception:
+                try:
+                    await self._handle(color, msg)
+                except Exception as e:
+                    log(f"unexpected error handling message from {conn.name}: {e}")
+        except ConnectionClosed:
             pass
         # socket closed — start disconnect countdown if game still running
         if not self._game_over_sent:
@@ -115,7 +120,7 @@ class GameSession:
         """Counts down DISCONNECT_GRACE_S seconds, notifying the opponent each second.
         If the player does not reconnect in time, they forfeit.
         Reconnect support can be added here in the future by checking a reconnect flag."""
-        other_color = "b" if disconnected_color == "w" else "w"
+        other_color = Color.BLACK if disconnected_color == Color.WHITE else Color.WHITE
         other_conn  = self._players[other_color]
         log(f"{self._players[disconnected_color].name} disconnected — {DISCONNECT_GRACE_S}s grace")
         for remaining in range(DISCONNECT_GRACE_S, 0, -1):
@@ -123,7 +128,7 @@ class GameSession:
                 return
             try:
                 await other_conn.send(OpponentDisconnectedMsg(grace_s=remaining))
-            except Exception:
+            except ConnectionClosed:
                 return
             await asyncio.sleep(1)
         if not self._game_over_sent:
@@ -134,15 +139,15 @@ class GameSession:
                 self._players[winner].name,
                 self._players[loser].name,
             )
-            await self._broadcast(GameOverMsg(winner=winner, reason="opponent disconnected"))
+            await self._broadcast(GameOverMsg(winner=winner.value, reason=GameOverReason.OPPONENT_DISCONNECTED))
             log(f"game over — {self._players[loser].name} forfeited by disconnect")
 
     async def _handle(self, color: str, msg) -> None:
         conn = self._players[color]
-        if msg.__class__.__name__ == "MoveMsg":
+        if isinstance(msg, MoveMsg):
             from_cell = tuple(msg.from_cell)
             piece = self._game.get_piece_at(from_cell)
-            if piece is None or piece.color != color:
+            if piece is None or piece.color != color.value:
                 await conn.send(ErrorMsg(reason="not your piece"))
                 return
             if apply_move(msg, self._game):
@@ -151,10 +156,10 @@ class GameSession:
                     to_cell=list(msg.to_cell),
                     time_ms=self._game.current_time,
                 ))
-        elif msg.__class__.__name__ == "JumpMsg":
+        elif isinstance(msg, JumpMsg):
             cell = tuple(msg.cell)
             piece = self._game.get_piece_at(cell)
-            if piece is None or piece.color != color:
+            if piece is None or piece.color != color.value:
                 await conn.send(ErrorMsg(reason="not your piece"))
                 return
             if apply_jump(msg, self._game):
@@ -167,5 +172,5 @@ class GameSession:
         for conn in self._players.values():
             try:
                 await conn.send(msg)
-            except Exception:
+            except ConnectionClosed:
                 pass

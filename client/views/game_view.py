@@ -15,6 +15,7 @@ from client.network.board_mirror import BoardMirror
 from client.views.base_view import BaseView
 from client.views.view_action import ViewAction
 from shared.messages import StateUpdateMsg, GameOverMsg, MoveMsg, JumpMsg, MoveAckMsg, OpponentDisconnectedMsg
+from shared.enums import Color
 
 
 class GameView(BaseView):
@@ -28,8 +29,8 @@ class GameView(BaseView):
 
     def on_enter(self, context: dict) -> None:
         self._ws     = context["ws_client"]
-        self._color  = context.get("color", "w")
-        self._mirror = BoardMirror()
+        self._color  = context.get("color", Color.WHITE)
+        self._mirror = BoardMirror(on_capture=self._on_capture)
         self._mapper = BoardMapper(gfx_config.CELL_PX)
         self._selected: tuple | None = None
         self._disconnect_countdown: int | None = None
@@ -39,7 +40,7 @@ class GameView(BaseView):
             context.get("black_name", "Black"),
             my_name=context.get("my_name", ""),
             my_rating=context.get("my_rating", 0),
-            player_color=self._color,
+            player_color=self._color.value,
         )
 
     def on_exit(self) -> None:
@@ -54,15 +55,16 @@ class GameView(BaseView):
 
         elif isinstance(msg, MoveAckMsg):
             from events.game_events import PieceMovedEvent
-            src   = tuple(msg.from_cell)
-            mover = self._mirror.get_piece_at(src)
-            if mover is not None:
+            piece_key = self._mirror.get_piece_at(tuple(msg.from_cell))
+            if piece_key is None:
+                piece_key = self._mirror.get_piece_at(tuple(msg.to_cell))
+            if piece_key is not None:
                 self._renderer.bus.publish(PieceMovedEvent(
-                    color=mover.color,
-                    origin=src,
+                    color=piece_key.color,
+                    origin=tuple(msg.from_cell),
                     destination=tuple(msg.to_cell),
                     elapsed_ms=msg.time_ms,
-                    piece_name=mover.sprite_key[1],
+                    piece_name=piece_key.sprite_key[1],
                 ))
 
         elif isinstance(msg, OpponentDisconnectedMsg):
@@ -94,9 +96,20 @@ class GameView(BaseView):
     def handle_resize(self, w: int, h: int) -> None:
         self._renderer.layout.on_resize(w, h)
 
+    def _on_capture(self, vm, at_cell: tuple, time_ms: int, by_color: str | None) -> None:
+        from events.game_events import PieceCapturedEvent
+        self._renderer.bus.publish(PieceCapturedEvent(
+            at_cell=at_cell,
+            elapsed_ms=time_ms,
+            piece_value=vm.value,
+            by_color=by_color,
+            captured_color=vm.color,
+            captured_type=vm.sprite_key[1],
+        ))
+
     def _to_server_cell(self, cell: tuple) -> tuple:
         """Flip screen cell back to server coordinates for black player."""
-        if self._color == "b":
+        if self._color == Color.BLACK:
             return (7 - cell[0], 7 - cell[1])
         return cell
 
@@ -108,13 +121,13 @@ class GameView(BaseView):
 
         if kind == "right_click":
             vm = self._mirror.get_piece_at(cell)
-            if vm and vm.sprite_key[0] == self._color:
+            if vm and vm.sprite_key[0] == self._color.value:
                 self._ws.send(JumpMsg(cell=list(cell)))
             return
 
         if self._selected is None:
             vm = self._mirror.get_piece_at(cell)
-            if vm and vm.sprite_key[0] == self._color:
+            if vm and vm.sprite_key[0] == self._color.value:
                 self._selected = cell
             return
 
@@ -124,7 +137,7 @@ class GameView(BaseView):
             return
 
         vm = self._mirror.get_piece_at(cell)
-        if vm and vm.sprite_key[0] == self._color:
+        if vm and vm.sprite_key[0] == self._color.value:
             self._selected = cell
             return
 

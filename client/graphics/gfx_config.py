@@ -116,3 +116,12 @@ DISCONNECT_OVERLAY_BOTTOM = 30  # px from bottom of window
 
 CONNECTING_BOX_W        = 500
 CONNECTING_BOX_H        = 100
+
+
+# ---------------------------------------------------------------------------
+# Window event types
+# ---------------------------------------------------------------------------
+class EventType:
+    LEFT_CLICK  = "left_click"
+    RIGHT_CLICK = "right_click"
+    RESIZE      = "resize"

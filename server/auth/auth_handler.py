@@ -1,8 +1,10 @@
 """Handles LOGIN / REGISTER on a raw websocket before the player enters matchmaking."""
 from __future__ import annotations
 import json
-from shared.messages import LoginOkMsg, LoginFailMsg, parse
+from shared.messages import LoginOkMsg, LoginFailMsg, parse, LoginMsg
 from server.auth import auth_service
+from server.errors import AuthError, DatabaseError
+from server.logging.server_logger import log
 
 
 async def authenticate(websocket) -> tuple[str, int] | None:
@@ -15,10 +17,10 @@ async def authenticate(websocket) -> tuple[str, int] | None:
     async for raw in websocket:
         try:
             msg = parse(json.loads(raw))
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
             continue
 
-        if msg.__class__.__name__ != "LoginMsg":
+        if not isinstance(msg, LoginMsg):
             continue
 
         try:
@@ -26,5 +28,8 @@ async def authenticate(websocket) -> tuple[str, int] | None:
                 else auth_service.login(msg.name, msg.password)
             await websocket.send(json.dumps(LoginOkMsg(name=user.username, elo=user.rating).to_json()))
             return user.username, user.rating
-        except ValueError as e:
+        except AuthError as e:
             await websocket.send(json.dumps(LoginFailMsg(reason=str(e)).to_json()))
+        except DatabaseError as e:
+            log(f"database error during auth: {e}")
+            return None

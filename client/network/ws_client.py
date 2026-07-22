@@ -22,6 +22,7 @@ import queue
 import threading
 
 import websockets
+from websockets.exceptions import ConnectionClosed, WebSocketException
 
 from shared.messages import parse
 
@@ -66,7 +67,7 @@ class WsClient:
                     self._receive_loop(ws),
                     self._send_loop(ws),
                 )
-        except Exception as e:
+        except (OSError, WebSocketException) as e:
             self.error = str(e)
             self.connected = False
 
@@ -81,7 +82,7 @@ class WsClient:
             try:
                 msg = parse(json.loads(raw))
                 self.inbound.put_nowait(msg)
-            except Exception:
+            except (json.JSONDecodeError, ValueError):
                 pass
 
     async def _send_loop(self, ws) -> None:
@@ -89,5 +90,5 @@ class WsClient:
             d = await self._outbound.get()
             try:
                 await ws.send(json.dumps(d))
-            except Exception:
-                pass
+            except ConnectionClosed:
+                break

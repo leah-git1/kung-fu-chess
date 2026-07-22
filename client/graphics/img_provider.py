@@ -1,4 +1,5 @@
 from graphics.img import Img
+from graphics import gfx_config
 import cv2
 import numpy as np
 
@@ -40,16 +41,16 @@ class WindowManager:
 
     def _on_mouse(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            self._events.append({"type": "left_click", "x": x, "y": y})
+            self._events.append({"type": gfx_config.EventType.LEFT_CLICK, "x": x, "y": y})
         elif event == cv2.EVENT_RBUTTONDOWN:
-            self._events.append({"type": "right_click", "x": x, "y": y})
+            self._events.append({"type": gfx_config.EventType.RIGHT_CLICK, "x": x, "y": y})
 
     def poll_events(self):
         events, self._events = self._events, []
         w, h = cv2.getWindowImageRect(self.window_name)[2:]
         if (w, h) != self._last_size and w > 0 and h > 0:
             self._last_size = (w, h)
-            events.append({"type": "resize", "width": w, "height": h})
+            events.append({"type": gfx_config.EventType.RESIZE, "width": w, "height": h})
         return events
 
     def is_open(self):

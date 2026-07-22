@@ -8,9 +8,11 @@ sys.path.insert(0, os.path.join(_ROOT, "logic"))
 sys.path.insert(0, _ROOT)
 
 import websockets
+from websockets.exceptions import ConnectionClosed
 
-from shared.messages import RoomStateMsg, SearchTimeoutMsg, parse
-from shared.constants import DEFAULT_PORT, MATCH_TIMEOUT_S, PLAY_REQUEST_TIMEOUT_S, PLAY_REQUEST_TIMEOUT_S
+from shared.messages import RoomStateMsg, SearchTimeoutMsg, parse, PlayRequestMsg
+from shared.constants import DEFAULT_PORT, MATCH_TIMEOUT_S, PLAY_REQUEST_TIMEOUT_S, RoomId
+from shared.enums import Color
 from server.session.player_connection import PlayerConnection
 from server.session.game_session import GameSession
 from server.logging.server_logger import log
@@ -47,17 +49,17 @@ class AppServer:
             return
         name, rating = result
 
-        conn = PlayerConnection(websocket, color="w", name=name, rating=rating)
+        conn = PlayerConnection(websocket, color=Color.WHITE, name=name, rating=rating)
         log(f"{name} (ELO {rating}) connected — waiting for Play")
-        await conn.send(RoomStateMsg(room_id="main", players=[name], started=False))
+        await conn.send(RoomStateMsg(room_id=RoomId.MAIN, players=[name], started=False))
 
         # Wait for PlayRequestMsg before entering matchmaking
         try:
             raw = await asyncio.wait_for(websocket.recv(), timeout=PLAY_REQUEST_TIMEOUT_S)
             msg = parse(json.loads(raw))
-            if msg.__class__.__name__ != "PlayRequestMsg":
+            if not isinstance(msg, PlayRequestMsg):
                 return
-        except Exception:
+        except (asyncio.TimeoutError, json.JSONDecodeError, ValueError):
             return
 
         log(f"{name} (ELO {rating}) searching for game")
@@ -78,15 +80,15 @@ class AppServer:
         opponent: PlayerConnection = fut.result()
 
         white, black = (conn, opponent) if id(conn) < id(opponent) else (opponent, conn)
-        white.color = "w"
-        black.color = "b"
+        white.color = Color.WHITE
+        black.color = Color.BLACK
 
         players = [white.name, black.name]
         for c in (white, black):
             try:
-                await c.send(RoomStateMsg(room_id="main", players=players,
-                                          started=True, color=c.color))
-            except Exception:
+                await c.send(RoomStateMsg(room_id=RoomId.MAIN, players=players,
+                                          started=True, color=c.color.value))
+            except ConnectionClosed:
                 pass
 
         log(f"match found: {white.name} vs {black.name}")

@@ -67,5 +67,10 @@ SHORT_REST_DURATION = 1000   # rest after a jump
 LONG_REST_DURATION = 2000    # rest after a move
 
 
+class RestType:
+    LONG  = "long"
+    SHORT = "short"
+
+
 
 

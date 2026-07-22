@@ -14,12 +14,11 @@ def _connect() -> sqlite3.Connection:
 
 def init_db() -> None:
     with _connect() as conn:
-        conn.execute("""
+        conn.execute(f"""
             CREATE TABLE IF NOT EXISTS users (
                 user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
                 username      TEXT    NOT NULL UNIQUE,
                 password_hash TEXT    NOT NULL,
-                salt          TEXT    NOT NULL DEFAULT '',
                 rating        INTEGER NOT NULL DEFAULT {ELO_DEFAULT}
             )
         """)
