@@ -125,3 +125,4 @@ class EventType:
     LEFT_CLICK  = "left_click"
     RIGHT_CLICK = "right_click"
     RESIZE      = "resize"
+    KEY         = "key"

@@ -142,7 +142,7 @@ class RoomStateMsg:
     room_id: str
     players: list[str]
     started: bool
-    color: str = ""   # assigned color for the receiving player ("w" or "b")
+    color: str = ""   # assigned color for the receiving player ("w", "b", or "" for spectator)
 
     def to_json(self) -> dict:
         return _base(T.ROOM_STATE, {"room_id": self.room_id, "players": self.players,
@@ -152,6 +152,18 @@ class RoomStateMsg:
     def from_json(cls, d: dict) -> RoomStateMsg:
         return cls(room_id=d["room_id"], players=d["players"],
                    started=d["started"], color=d.get("color", ""))
+
+
+@dataclass
+class RoomErrorMsg:
+    reason: str
+
+    def to_json(self) -> dict:
+        return _base(T.ROOM_ERROR, {"reason": self.reason})
+
+    @classmethod
+    def from_json(cls, d: dict) -> "RoomErrorMsg":
+        return cls(reason=d["reason"])
 
 
 # ── In-game ───────────────────────────────────────────────────────────────────
@@ -313,6 +325,7 @@ REGISTRY: dict[str, type] = {
     T.ROOM_CREATE:            RoomCreateMsg,
     T.ROOM_JOIN:              RoomJoinMsg,
     T.ROOM_STATE:             RoomStateMsg,
+    T.ROOM_ERROR:             RoomErrorMsg,
     T.START:                  StartMsg,
     T.MOVE:                   MoveMsg,
     T.JUMP:                   JumpMsg,

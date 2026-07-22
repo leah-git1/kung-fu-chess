@@ -18,8 +18,10 @@ from client.views.view_action import ViewAction
 from client.views.connecting_view import ConnectingView
 from client.views.home_view import HomeView
 from client.views.matchmaking_view import MatchmakingView
+from client.views.room_dialog_view import RoomDialogView
+from client.views.room_waiting_view import RoomWaitingView
 from client.views.game_view import GameView
-from shared.messages import RoomStateMsg, LoginMsg, LoginOkMsg, LoginFailMsg, SearchTimeoutMsg
+from shared.messages import RoomStateMsg, RoomErrorMsg, LoginMsg, LoginOkMsg, LoginFailMsg, SearchTimeoutMsg
 from shared.constants import DEFAULT_PORT
 from shared.enums import Color
 
@@ -39,6 +41,8 @@ class GameClientApp:
         self._connecting_view  = ConnectingView()
         self._home_view        = HomeView()
         self._matchmaking_view = MatchmakingView()
+        self._room_dialog_view = RoomDialogView()
+        self._room_waiting_view = RoomWaitingView()
         self._game_view        = GameView()
 
         self._window = WindowManager(
@@ -50,6 +54,7 @@ class GameClientApp:
         self._color      = Color.WHITE
         self._white_name = "White"
         self._black_name = "Black"
+        self._room_id    = ""
         self._current_view = self._connecting_view
 
     def run(self) -> None:
@@ -76,6 +81,9 @@ class GameClientApp:
                 if self._dispatch_event(event) == "close":
                     self._window.close()
                     return
+
+            if not self._window.is_open():
+                return
 
             canvas = GameImg.blank(gfx_config.WINDOW_PX_W, gfx_config.WINDOW_PX_H,
                                    (15, 15, 15, 255))
@@ -105,9 +113,20 @@ class GameClientApp:
             if len(players) == 2:
                 self._white_name = players[0]
                 self._black_name = players[1]
-            if msg.color:
-                self._color = Color(msg.color)
+            self._color = Color(msg.color) if msg.color else ""
+            self._room_id = msg.room_id
             self._switch_to_game()
+            return
+
+        if isinstance(msg, RoomStateMsg) and not msg.started and msg.room_id:
+            # Creator receives started=False with the generated room_id
+            self._room_id = msg.room_id
+            if self._current_view is self._room_waiting_view:
+                self._room_waiting_view.handle_server_message(msg)
+            return
+
+        if isinstance(msg, RoomErrorMsg):
+            self._switch_to_home({"status_msg": msg.reason})
             return
 
         action = self._current_view.handle_server_message(msg)
@@ -145,8 +164,19 @@ class GameClientApp:
             "black_name":  self._black_name,
             "my_rating":   self._rating,
             "my_name":     self._player_name,
+            "room_id":     self._room_id,
         })
         self._current_view = self._game_view
+
+    def _switch_to_room_dialog(self) -> None:
+        self._current_view.on_exit()
+        self._room_dialog_view.on_enter({"ws_client": self._ws})
+        self._current_view = self._room_dialog_view
+
+    def _switch_to_room_waiting(self) -> None:
+        self._current_view.on_exit()
+        self._room_waiting_view.on_enter({"room_id": self._room_id})
+        self._current_view = self._room_waiting_view
 
     def _switch(self, action: ViewAction, context: dict = None) -> None:
         if action == ViewAction.QUIT:
@@ -155,6 +185,10 @@ class GameClientApp:
             self._switch_to_home(context or {})
         elif action == ViewAction.GOTO_MATCHMAKING:
             self._switch_to_matchmaking()
+        elif action == ViewAction.GOTO_ROOM_DIALOG:
+            self._switch_to_room_dialog()
+        elif action == ViewAction.GOTO_ROOM_WAITING:
+            self._switch_to_room_waiting()
         elif action == ViewAction.GOTO_GAME:
             self._switch_to_game()
 
@@ -174,6 +208,10 @@ class GameClientApp:
         elif kind == gfx_config.EventType.RIGHT_CLICK:
             if hasattr(self._current_view, "handle_right_click"):
                 self._current_view.handle_right_click(event["x"], event["y"])
+        elif kind == "key":
+            action = self._current_view.handle_key(event["key"])
+            if action:
+                self._switch(action)
 
     @staticmethod
     def _now_ms() -> int:

@@ -18,6 +18,7 @@ SEARCH_TIMEOUT  = "search_timeout"
 ROOM_CREATE     = "room_create"     
 ROOM_JOIN       = "room_join"       
 ROOM_STATE      = "room_state"      
+ROOM_ERROR      = "room_error"      
 
 # ── In-game ───────────────────────────────────────────────────────────────────
 START           = "start"           

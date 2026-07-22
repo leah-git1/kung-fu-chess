@@ -19,13 +19,15 @@ class GameRenderer:
 
     def __init__(self, white_name: str, black_name: str,
                  bus: EventBus,
-                 my_name: str = "", my_rating: int = 0, player_color: str = "w"):
+                 my_name: str = "", my_rating: int = 0, player_color: str = "w",
+                 room_id: str = ""):
         self.layout        = Layout()
         self.board_renderer = BoardRenderer(self.layout)
         self.piece_renderer = PieceRenderer(self.layout, player_color=player_color)
         self._flip          = (player_color == "b")
         self.names_panel    = PlayerNamesPanel(white_name, black_name,
-                                               my_name=my_name, my_rating=my_rating)
+                                               my_name=my_name, my_rating=my_rating,
+                                               room_id=room_id)
 
         self.bus            = bus
         self.moves_log_b    = MovesLog("b", self.bus)

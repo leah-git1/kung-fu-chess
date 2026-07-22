@@ -28,7 +28,6 @@ class GameImg(Img):
 
     def show(self, window_name="Kung-Fu Chess"):
         cv2.imshow(window_name, self.img)
-        cv2.waitKey(1)                         
 
 class WindowManager:
     def __init__(self, window_name, width, height):
@@ -51,6 +50,9 @@ class WindowManager:
         if (w, h) != self._last_size and w > 0 and h > 0:
             self._last_size = (w, h)
             events.append({"type": gfx_config.EventType.RESIZE, "width": w, "height": h})
+        key = cv2.waitKey(1) & 0xFF
+        if key != 255:
+            events.append({"type": gfx_config.EventType.KEY, "key": key})
         return events
 
     def is_open(self):

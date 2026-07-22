@@ -30,10 +30,12 @@ class GameView(BaseView):
     """
 
     def on_enter(self, context: dict) -> None:
-        self._ws     = context["ws_client"]
-        self._color  = context.get("color", Color.WHITE)
-        self._mirror = BoardMirror(on_capture=self._on_capture)
-        self._mapper = BoardMapper(gfx_config.CELL_PX)
+        self._ws       = context["ws_client"]
+        color          = context.get("color", Color.WHITE)
+        self._spectator = (color == "")
+        self._color    = color if not self._spectator else Color.WHITE
+        self._mirror   = BoardMirror(on_capture=self._on_capture)
+        self._mapper   = BoardMapper(gfx_config.CELL_PX)
         self._selected: tuple | None = None
         self._disconnect_countdown: int | None = None
 
@@ -44,7 +46,8 @@ class GameView(BaseView):
             bus,
             my_name=context.get("my_name", ""),
             my_rating=context.get("my_rating", 0),
-            player_color=self._color.value,
+            player_color=self._color.value if not self._spectator else "w",
+            room_id=context.get("room_id", ""),
         )
         self._event_adapter = NetworkEventAdapter(bus, self._mirror)
 
@@ -76,12 +79,16 @@ class GameView(BaseView):
             if self._renderer.game_over_panel.on_click(x, y) == PanelAction.CLOSE:
                 return ViewAction.QUIT
             return None
+        if self._spectator:
+            return None
         bp = self._renderer.layout.screen_to_board_pixel(x, y)
         if bp:
             self._on_board_click(*bp, "left_click")
         return None
 
     def handle_right_click(self, x: int, y: int) -> None:
+        if self._spectator:
+            return
         bp = self._renderer.layout.screen_to_board_pixel(x, y)
         if bp:
             self._on_board_click(*bp, "right_click")

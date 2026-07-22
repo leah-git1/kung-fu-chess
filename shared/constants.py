@@ -8,6 +8,8 @@ class GameOverReason:
 class RoomId:
     MAIN = "main"
 
+ROOM_ID_LENGTH = 4  # characters in a generated room code (e.g. "A3F7")
+
 
 
 # -- Network ------------------------------------------------------------------

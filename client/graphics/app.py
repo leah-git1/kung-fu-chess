@@ -70,6 +70,9 @@ class GraphicsApp:
                     self._window.close()
                     return
 
+            if not self._window.is_open():
+                return
+
             if not self.start_game_panel.active:
                 self.game.advance_time(elapsed)
                 self.event_source.poll(self.game)

@@ -45,13 +45,19 @@ Commands:"""
 
 
 class GameSession:
-    def __init__(self, white: PlayerConnection, black: PlayerConnection, on_done=None):
+    def __init__(self, white: PlayerConnection, black: PlayerConnection,
+                 spectators: list[PlayerConnection] | None = None, on_done=None):
         self._players: dict[str, PlayerConnection] = {Color.WHITE: white, Color.BLACK: black}
+        self._spectators = spectators or []
         self._on_done = on_done
         board = BoardParser().parse(_STARTING_POSITION.splitlines())
         self._game = Game(board)
         self._game_over_sent  = False
         self._ms_since_update = 0
+
+    def add_spectator(self, conn: PlayerConnection) -> None:
+        """Add a late-joining spectator to an already-running session."""
+        self._spectators.append(conn)
 
     async def run(self) -> None:
         log(f"session started  w={self._players[Color.WHITE].name}  b={self._players[Color.BLACK].name}")
@@ -169,7 +175,7 @@ class GameSession:
                 ))
 
     async def _broadcast(self, msg) -> None:
-        for conn in self._players.values():
+        for conn in list(self._players.values()) + self._spectators:
             try:
                 await conn.send(msg)
             except ConnectionClosed:
