@@ -25,7 +25,7 @@ import websockets
 from websockets.exceptions import ConnectionClosed, WebSocketException
 
 from shared.messages import parse
-from client.logging.client_logger import log
+from client.log_utils.client_logger import log
 
 
 class WsClient:

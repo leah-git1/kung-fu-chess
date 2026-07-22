@@ -24,7 +24,7 @@ from client.views.game_view import GameView
 from shared.messages import RoomStateMsg, RoomErrorMsg, LoginMsg, LoginOkMsg, LoginFailMsg, SearchTimeoutMsg
 from shared.constants import DEFAULT_PORT
 from shared.enums import Color
-from client.logging.client_logger import log
+from client.log_utils.client_logger import log
 
 
 class GameClientApp:
