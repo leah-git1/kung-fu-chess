@@ -18,6 +18,7 @@ class GameRenderer:
     """
 
     def __init__(self, white_name: str, black_name: str,
+                 bus: EventBus,
                  my_name: str = "", my_rating: int = 0, player_color: str = "w"):
         self.layout        = Layout()
         self.board_renderer = BoardRenderer(self.layout)
@@ -26,7 +27,7 @@ class GameRenderer:
         self.names_panel    = PlayerNamesPanel(white_name, black_name,
                                                my_name=my_name, my_rating=my_rating)
 
-        self.bus            = EventBus()
+        self.bus            = bus
         self.moves_log_b    = MovesLog("b", self.bus)
         self.moves_log_w    = MovesLog("w", self.bus)
         self.score_board    = ScoreBoard(self.bus)

@@ -10,6 +10,8 @@ from controller.board_mapper import BoardMapper
 from graphics import gfx_config
 from graphics.game_renderer import GameRenderer
 from graphics.panels.panel_action import PanelAction
+from events.event_bus import EventBus
+from events.network_event_adapter import NetworkEventAdapter
 
 from client.network.board_mirror import BoardMirror
 from client.views.base_view import BaseView
@@ -35,13 +37,16 @@ class GameView(BaseView):
         self._selected: tuple | None = None
         self._disconnect_countdown: int | None = None
 
+        bus = EventBus()
         self._renderer = GameRenderer(
             context.get("white_name", "White"),
             context.get("black_name", "Black"),
+            bus,
             my_name=context.get("my_name", ""),
             my_rating=context.get("my_rating", 0),
             player_color=self._color.value,
         )
+        self._event_adapter = NetworkEventAdapter(bus, self._mirror)
 
     def on_exit(self) -> None:
         self._selected = None
@@ -54,18 +59,7 @@ class GameView(BaseView):
             self._mirror.apply_state_update(msg.board, msg.time_ms, msg.motions)
 
         elif isinstance(msg, MoveAckMsg):
-            from events.game_events import PieceMovedEvent
-            piece_key = self._mirror.get_piece_at(tuple(msg.from_cell))
-            if piece_key is None:
-                piece_key = self._mirror.get_piece_at(tuple(msg.to_cell))
-            if piece_key is not None:
-                self._renderer.bus.publish(PieceMovedEvent(
-                    color=piece_key.color,
-                    origin=tuple(msg.from_cell),
-                    destination=tuple(msg.to_cell),
-                    elapsed_ms=msg.time_ms,
-                    piece_name=piece_key.sprite_key[1],
-                ))
+            self._event_adapter.on_move_ack(msg)
 
         elif isinstance(msg, OpponentDisconnectedMsg):
             self._disconnect_countdown = msg.grace_s
@@ -73,8 +67,7 @@ class GameView(BaseView):
         elif isinstance(msg, GameOverMsg):
             self._mirror.apply_game_over(msg.winner)
             self._renderer.game_over_panel.set_reason(msg.reason)
-            from events.game_events import GameOverEvent
-            self._renderer.bus.publish(GameOverEvent(winner_color=msg.winner))
+            self._event_adapter.on_game_over(msg)
 
         return None
 
@@ -97,15 +90,7 @@ class GameView(BaseView):
         self._renderer.layout.on_resize(w, h)
 
     def _on_capture(self, vm, at_cell: tuple, time_ms: int, by_color: str | None) -> None:
-        from events.game_events import PieceCapturedEvent
-        self._renderer.bus.publish(PieceCapturedEvent(
-            at_cell=at_cell,
-            elapsed_ms=time_ms,
-            piece_value=vm.value,
-            by_color=by_color,
-            captured_color=vm.color,
-            captured_type=vm.sprite_key[1],
-        ))
+        self._event_adapter.on_capture(vm, at_cell, time_ms, by_color)
 
     def _to_server_cell(self, cell: tuple) -> tuple:
         """Flip screen cell back to server coordinates for black player."""

@@ -14,8 +14,8 @@ from graphics import gfx_config
 from graphics.img_provider import GameImg, WindowManager
 from graphics.input_adapter import InputAdapter
 from graphics.game_renderer import GameRenderer
+from events.event_bus import EventBus
 from events.game_event_source import GameEventSource
-from events.game_events import GameStartedEvent
 from graphics.panels.start_game_panel import StartGamePanel
 from graphics.panels.panel_action import PanelAction
 
@@ -37,24 +37,24 @@ class GraphicsApp:
     def __init__(self, white_name="White", black_name="Black"):
         self._white_name = white_name
         self._black_name = black_name
-        self._renderer = GameRenderer(white_name, black_name)
 
         mapper = BoardMapper(gfx_config.CELL_PX)
         self.input_controller = InputController(mapper)
+        self._init_game_state()
         self.input_adapter = InputAdapter(self.input_controller, self._renderer.layout, None)
 
         self._window = WindowManager(gfx_config.WINDOW_TITLE,
                                      self._renderer.layout.window_px_w,
                                      self._renderer.layout.window_px_h)
         self._last_tick_ms = None
-        self._init_game_state()
 
     def _init_game_state(self):
         board = BoardParser().parse(_STARTING_POSITION.strip().splitlines())
         self.game = Game(board)
-        self._renderer = GameRenderer(self._white_name, self._black_name)
-        self.start_game_panel = StartGamePanel(self._renderer.bus)
-        self.event_source = GameEventSource(self._renderer.bus)
+        bus = EventBus()
+        self._renderer = GameRenderer(self._white_name, self._black_name, bus)
+        self.start_game_panel = StartGamePanel()
+        self.event_source = GameEventSource(bus)
         self.input_controller.reset()
         self.input_adapter = InputAdapter(self.input_controller, self._renderer.layout, self.game)
 
@@ -88,8 +88,7 @@ class GraphicsApp:
 
     def _handle_click(self, x, y, kind):
         if self.start_game_panel.active:
-            if self.start_game_panel.on_click(x, y) == PanelAction.START:
-                self._renderer.bus.publish(GameStartedEvent())
+            self.start_game_panel.on_click(x, y)
             return
         if self._renderer.game_over_panel.active:
             action = self._renderer.game_over_panel.on_click(x, y)

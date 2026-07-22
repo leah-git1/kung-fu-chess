@@ -15,9 +15,5 @@ class PieceCapturedEvent:
     captured_type: str = ""
 
 @dataclass(frozen=True)
-class GameStartedEvent:
-    pass
-
-@dataclass(frozen=True)
 class GameOverEvent:
     winner_color: str
