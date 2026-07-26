@@ -32,9 +32,9 @@ class GameView(BaseView):
     def on_enter(self, context: dict) -> None:
         s              = context["app_state"]
         self._ws       = context["ws_client"]
-        color          = s.color
-        self._spectator = (color == "")
-        self._color    = color if not self._spectator else Color.WHITE
+        color           = s.color
+        self._spectator = (color == Color.SPECTATOR)
+        self._color     = color if not self._spectator else Color.WHITE
         self._mirror   = BoardMirror(on_capture=self._on_capture)
         self._mapper   = BoardMapper(gfx_config.CELL_PX)
         self._selected: tuple | None = None
@@ -61,18 +61,14 @@ class GameView(BaseView):
     def handle_server_message(self, msg) -> ViewAction | None:
         if isinstance(msg, StateUpdateMsg):
             self._mirror.apply_state_update(msg.board, msg.time_ms, msg.motions)
-
         elif isinstance(msg, MoveAckMsg):
             self._event_adapter.on_move_ack(msg)
-
         elif isinstance(msg, OpponentDisconnectedMsg):
             self._disconnect_countdown = msg.grace_s
-
         elif isinstance(msg, GameOverMsg):
             self._mirror.apply_game_over(msg.winner)
             self._renderer.game_over_panel.set_reason(msg.reason)
             self._event_adapter.on_game_over(msg)
-
         return None
 
     def handle_click(self, x: int, y: int) -> ViewAction | None:

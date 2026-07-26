@@ -37,7 +37,7 @@ class HomeView(BaseView):
         if self._play_rect:
             bx, by, bw, bh = self._play_rect
             if bx <= x <= bx + bw and by <= y <= by + bh:
-                self._ws.send(PlayRequestMsg(mode=PlayMode.RANKED.value))
+                self._ws.send(PlayRequestMsg(mode=PlayMode.RANKED))
                 return ViewAction.GOTO_MATCHMAKING
         if self._room_rect:
             bx, by, bw, bh = self._room_rect

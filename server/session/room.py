@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 from server.session.player_connection import PlayerConnection
+from shared.enums import Color
 
 
 class Room:
@@ -28,14 +29,14 @@ class Room:
             names.append(self.black.name)
         return names
 
-    def add(self, conn: PlayerConnection) -> str:
+    def add(self, conn: PlayerConnection) -> Color:
         """
         Add a connection to the room.
-        Returns the assigned role: "b" for Black, "" for spectator.
+        Returns the assigned role: Color.BLACK for Black, Color.SPECTATOR for spectator.
         """
         if self.black is None:
             self.black = conn
             self.ready.set()
-            return "b"
+            return Color.BLACK
         self.spectators.append(conn)
-        return ""
+        return Color.SPECTATOR

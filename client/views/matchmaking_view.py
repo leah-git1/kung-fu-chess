@@ -12,19 +12,11 @@ from shared.messages import SearchTimeoutMsg
 
 
 class MatchmakingView(BaseView):
-    """
-    Shown while searching for an opponent.
-    Reuses ConnectingRenderer for the status box.
-
-    Transitions:
-      RoomStateMsg(started=True) → handled by GameClientApp → GOTO_GAME
-      SearchTimeoutMsg           → GOTO_HOME with timeout message
-    """
 
     def on_enter(self, context: dict) -> None:
-        self._renderer  = ConnectingRenderer()
-        self._start_s   = time.monotonic()
-        self._status    = "Searching for opponent…"
+        self._renderer = ConnectingRenderer()
+        self._start_s  = time.monotonic()
+        self._status   = "Searching for opponent…"
 
     def tick(self) -> None:
         elapsed = int(time.monotonic() - self._start_s)

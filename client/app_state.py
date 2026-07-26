@@ -7,7 +7,7 @@ class AppState:
     password:    str = ""
     register:    bool = False
     rating:      int  = 1200
-    color:       Color = Color.WHITE
+    color:       Color = Color.SPECTATOR
     white_name:  str = "White"
     black_name:  str = "Black"
     room_id:     str = ""

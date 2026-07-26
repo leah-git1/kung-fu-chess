@@ -14,10 +14,7 @@ class BaseView:
     """
 
     def on_enter(self, context: dict) -> None:
-        """Called once when this view becomes the active view.
-
-        context: arbitrary data passed by the caller (e.g. winner name, room id).
-        """
+        """Called once when this view becomes the active view."""
 
     def on_exit(self) -> None:
         """Called once just before this view is replaced by another."""
@@ -33,6 +30,6 @@ class BaseView:
 
     def render(self, canvas) -> None:
         """Draw this view onto canvas (a GameImg). Called every frame."""
-        
+
     def tick(self):
         pass

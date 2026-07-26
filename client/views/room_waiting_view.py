@@ -12,13 +12,6 @@ from shared.messages import RoomStateMsg, RoomErrorMsg
 
 
 class RoomWaitingView(BaseView):
-    """
-    Shown after Create (waiting for opponent) or after Join (briefly, before game starts).
-
-    Transitions:
-      RoomStateMsg(started=True)  → GOTO_GAME  (handled by GameClientApp)
-      RoomErrorMsg                → GOTO_HOME with error message
-    """
 
     def on_enter(self, context: dict) -> None:
         s              = context["app_state"]
@@ -29,7 +22,6 @@ class RoomWaitingView(BaseView):
 
     def handle_server_message(self, msg) -> ViewAction | None:
         if isinstance(msg, RoomStateMsg) and not msg.started:
-            # Creator receives this first with started=False — update room_id display
             self._room_id = msg.room_id
             self._status  = f"Waiting for opponent…  Room: {self._room_id}"
         if isinstance(msg, RoomErrorMsg):
@@ -38,7 +30,3 @@ class RoomWaitingView(BaseView):
 
     def render(self, canvas) -> None:
         self._renderer.render(canvas, self._status)
-
-    @property
-    def error_message(self) -> str:
-        return getattr(self, "_error", "")

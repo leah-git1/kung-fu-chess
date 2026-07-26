@@ -2,8 +2,9 @@ from enum import Enum
 
 
 class Color(Enum):
-    WHITE = "w"
-    BLACK = "b"
+    WHITE     = "w"
+    BLACK     = "b"
+    SPECTATOR = ""
 
 
 class RestType(Enum):

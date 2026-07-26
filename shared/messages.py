@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 import shared.message_types as T
+from shared.enums import PlayMode
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -77,14 +78,14 @@ class LoginFailMsg:
 
 @dataclass
 class PlayRequestMsg:
-    mode: str  # "ranked" | "casual"
+    mode: PlayMode
 
     def to_json(self) -> dict:
-        return _base(T.PLAY_REQUEST, {"mode": self.mode})
+        return _base(T.PLAY_REQUEST, {"mode": self.mode.value})
 
     @classmethod
     def from_json(cls, d: dict) -> PlayRequestMsg:
-        return cls(mode=d["mode"])
+        return cls(mode=PlayMode(d["mode"]))
 
 
 @dataclass

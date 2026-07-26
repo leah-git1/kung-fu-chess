@@ -10,16 +10,9 @@ from shared.messages import RoomStateMsg
 
 
 class ConnectingView(BaseView):
-    """
-    Shown while the WebSocket connection is being established.
-
-    Transitions:
-      RoomStateMsg(started=True)  → GOTO_GAME   (both players connected)
-      RoomStateMsg(started=False) → stays here  (waiting for second player)
-    """
 
     def on_enter(self, context: dict) -> None:
-        self._status = context.get("status", "Connecting to server…")
+        self._status   = context.get("status", "Connecting to server…")
         self._renderer = ConnectingRenderer()
 
     def handle_server_message(self, msg) -> ViewAction | None:

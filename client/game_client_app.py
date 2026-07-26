@@ -41,6 +41,12 @@ class GameClientApp:
             gfx_config.WINDOW_PX_H,
         )
         self._vm = self._build_view_manager()
+        self._registry = {
+            LoginOkMsg:   self._on_login_ok,
+            LoginFailMsg: self._on_login_fail,
+            RoomStateMsg: self._on_game_start,
+            RoomErrorMsg: self._on_room_error,
+        }
 
     def _build_view_manager(self) -> ViewManager:
         s, ws = self._state, self._ws
@@ -93,45 +99,44 @@ class GameClientApp:
             if remaining > 0:
                 time.sleep(remaining / 1000)
 
-    # ── server message routing ────────────────────────────────────────────────
-
     def _handle_server_message(self, msg) -> None:
-        if isinstance(msg, LoginOkMsg):
-            self._state.player_name = msg.name
-            self._state.rating      = msg.elo
-            log(f"logged in as {msg.name} (ELO {msg.elo})")
-            self._vm.switch(ViewAction.GOTO_HOME)
+        if handler := self._registry.get(type(msg)):
+            handler(msg)
             return
-
-        if isinstance(msg, LoginFailMsg):
-            log(f"login failed: {msg.reason}", level="warning")
-            print(f"Auth failed: {msg.reason}")
-            self._window.close()
-            return
-
-        if isinstance(msg, RoomStateMsg) and msg.started:
-            players = msg.players
-            if len(players) == 2:
-                self._state.white_name = players[0]
-                self._state.black_name = players[1]
-            self._state.color   = Color(msg.color) if msg.color else ""
-            self._state.room_id = msg.room_id
-            log(f"game starting — room={msg.room_id} "
-                f"role={msg.color or 'spectator'} players={players}")
-            self._vm.switch(ViewAction.GOTO_GAME)
-            return
-
-        if isinstance(msg, RoomErrorMsg):
-            log(f"room error: {msg.reason}", level="warning")
-            self._vm.switch(ViewAction.GOTO_HOME, extra={"status_msg": msg.reason})
-            return
-
         action = self._vm.handle_server_message(msg)
         if action == ViewAction.GOTO_HOME:
             self._vm.switch(ViewAction.GOTO_HOME,
                             extra={"status_msg": "No opponent found. Try again later."})
         elif action:
             self._vm.switch(action)
+
+    def _on_login_ok(self, msg: LoginOkMsg) -> None:
+        self._state.player_name = msg.name
+        self._state.rating      = msg.elo
+        log(f"logged in as {msg.name} (ELO {msg.elo})")
+        self._vm.switch(ViewAction.GOTO_HOME)
+
+    def _on_login_fail(self, msg: LoginFailMsg) -> None:
+        log(f"login failed: {msg.reason}", level="warning")
+        print(f"Auth failed: {msg.reason}")
+        self._window.close()
+
+    def _on_game_start(self, msg: RoomStateMsg) -> None:
+        if not msg.started:
+            return
+        players = msg.players
+        if len(players) == 2:
+            self._state.white_name = players[0]
+            self._state.black_name = players[1]
+        self._state.color   = Color(msg.color) if msg.color else Color.SPECTATOR
+        self._state.room_id = msg.room_id
+        log(f"game starting — room={msg.room_id} "
+            f"role={self._state.color.name.lower()} players={players}")
+        self._vm.switch(ViewAction.GOTO_GAME)
+
+    def _on_room_error(self, msg: RoomErrorMsg) -> None:
+        log(f"room error: {msg.reason}", level="warning")
+        self._vm.switch(ViewAction.GOTO_HOME, extra={"status_msg": msg.reason})
 
     # ── input dispatch ────────────────────────────────────────────────────────
 

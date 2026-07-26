@@ -27,8 +27,13 @@ class AppServer:
         self._port         = port
         self._matchmaker   = Matchmaker()
         self._room_manager = RoomManager()
-        self._sessions: dict[str, asyncio.Event] = {}  # white_name -> done event
+        self._sessions: dict[str, asyncio.Event] = {}  # room_id -> done event
         self._session_lock = asyncio.Lock()
+        self._registry = {
+            RoomCreateMsg:  self._handle_room_create,
+            RoomJoinMsg:    self._handle_room_join,
+            PlayRequestMsg: self._handle_matchmaking,
+        }
 
     async def start(self) -> None:
         init_db()
@@ -36,7 +41,7 @@ class AppServer:
         async with websockets.serve(self._on_connect, "0.0.0.0", self._port):
             await self._match_loop()
 
-    # ── match loop — driven by AppServer, not Matchmaker ─────────────────────
+    # ── match loop ────────────────────────────────────────────────────────────
 
     async def _match_loop(self) -> None:
         while True:
@@ -44,7 +49,7 @@ class AppServer:
             self._matchmaker.match()
 
     # ── one coroutine per connected client ────────────────────────────────────
-    #ELIF
+
     async def _on_connect(self, websocket) -> None:
         result = await authenticate(websocket)
         if result is None:
@@ -55,55 +60,45 @@ class AppServer:
         log(f"{name} (ELO {rating}) connected — waiting for action")
         await conn.send(RoomStateMsg(room_id=RoomId.MAIN, players=[name], started=False))
 
-        # Wait for the first intent message
         try:
             raw = await asyncio.wait_for(websocket.recv(), timeout=PLAY_REQUEST_TIMEOUT_S)
             msg = parse(json.loads(raw))
         except (asyncio.TimeoutError, json.JSONDecodeError, ValueError):
             return
 
-        if isinstance(msg, RoomCreateMsg):
-            await self._handle_room_create(conn)
-        elif isinstance(msg, RoomJoinMsg):
-            await self._handle_room_join(conn, msg.room_id)
-        elif isinstance(msg, PlayRequestMsg):
-            await self._handle_matchmaking(conn)
+        if handler := self._registry.get(type(msg)):
+            await handler(msg, conn)
 
     # ── room: create ─────────────────────────────────────────────────────────
 
-    async def _handle_room_create(self, conn: PlayerConnection) -> None:
+    async def _handle_room_create(self, msg: RoomCreateMsg, conn: PlayerConnection) -> None:
         room = self._room_manager.create(conn)
         conn.color = Color.WHITE
         log(f"{conn.name} created room {room.room_id}")
         await conn.send(RoomStateMsg(room_id=room.room_id, players=room.player_names,
                                      started=False, color=Color.WHITE.value))
-        # Park until a second player joins (ready event set by Room.add)
         await room.ready.wait()
         await self._start_room_session(room)
 
     # ── room: join ────────────────────────────────────────────────────────────
 
-    async def _handle_room_join(self, conn: PlayerConnection, room_id: str) -> None:
-        room = self._room_manager.join(room_id, conn)
-        if room is None:
+    async def _handle_room_join(self, msg: RoomJoinMsg, conn: PlayerConnection) -> None:
+        result = self._room_manager.join(msg.room_id, conn)
+        if result is None:
             await conn.send(RoomErrorMsg(reason=f"Room '{room_id}' not found."))
             return
-        role = room.add(conn)          # "b" or ""
-        conn.color = Color(role) if role else Color.WHITE  # spectators keep WHITE as placeholder
-        log(f"{conn.name} joined room {room.room_id} as {'spectator' if not role else 'Black'}")
+        room, role = result
+        conn.color = role if role != Color.SPECTATOR else Color.WHITE
+        log(f"{conn.name} joined room {room.room_id} as {role.name.lower()}")
 
-        if role == "b":
-            done_event = await self._get_or_create_done_event(room.white.name)
-            await done_event.wait()
+        if role == Color.BLACK:
+            await (await self._get_or_create_done_event(room.room_id)).wait()
         else:
-            # Spectator — notify client and register on the session if already running
-            players = room.player_names
-            await conn.send(RoomStateMsg(room_id=room.room_id, players=players,
-                                         started=True, color=""))
+            await self._safe_send(conn, RoomStateMsg(room_id=room.room_id, players=room.player_names,
+                                                     started=True, color=Color.SPECTATOR.value))
             if room.session is not None:
                 room.session.add_spectator(conn)
-            done_event = await self._get_or_create_done_event(room.white.name)
-            await done_event.wait()
+            await (await self._get_or_create_done_event(room.room_id)).wait()
 
     # ── room: start session ───────────────────────────────────────────────────
 
@@ -111,42 +106,20 @@ class AppServer:
         white, black = room.white, room.black
         players = room.player_names
         for c in (white, black):
-            try:
-                await c.send(RoomStateMsg(room_id=room.room_id, players=players,
-                                          started=True, color=c.color.value))
-            except ConnectionClosed:
-                pass
+            await self._safe_send(c, RoomStateMsg(room_id=room.room_id, players=players,
+                                                  started=True, color=c.color.value))
         for spec in room.spectators:
-            try:
-                await spec.send(RoomStateMsg(room_id=room.room_id, players=players,
-                                             started=True, color=""))
-            except ConnectionClosed:
-                pass
+            await self._safe_send(spec, RoomStateMsg(room_id=room.room_id, players=players,
+                                                     started=True, color=Color.SPECTATOR.value))
         log(f"room {room.room_id}: {white.name} vs {black.name}")
-        session_key = white.name
-        async with self._session_lock:
-            if session_key not in self._sessions:
-                self._sessions[session_key] = asyncio.Event()
-        done_event = self._sessions[session_key]
         session = GameSession(white, black, spectators=room.spectators,
-                              on_done=done_event.set)
+                              on_done=(await self._get_or_create_done_event(room.room_id)).set)
         room.session = session
-        try:
-            await session.run()
-        finally:
-            self._room_manager.remove(room.room_id)
-            async with self._session_lock:
-                self._sessions.pop(session_key, None)
-
-    async def _get_or_create_done_event(self, key: str) -> asyncio.Event:
-        async with self._session_lock:
-            if key not in self._sessions:
-                self._sessions[key] = asyncio.Event()
-            return self._sessions[key]
+        await self._run_session(room.room_id, session)
 
     # ── matchmaking ───────────────────────────────────────────────────────────
 
-    async def _handle_matchmaking(self, conn: PlayerConnection) -> None:
+    async def _handle_matchmaking(self, msg: PlayRequestMsg, conn: PlayerConnection) -> None:
         log(f"{conn.name} (ELO {conn.rating}) searching for game")
         fut = self._matchmaker.add(conn)
         try:
@@ -167,26 +140,40 @@ class AppServer:
         white.color = Color.WHITE
         black.color = Color.BLACK
 
+        room_id = RoomId.MAIN
         players = [white.name, black.name]
         for c in (white, black):
-            try:
-                await c.send(RoomStateMsg(room_id=RoomId.MAIN, players=players,
-                                          started=True, color=c.color.value))
-            except ConnectionClosed:
-                pass
+            await self._safe_send(c, RoomStateMsg(room_id=room_id, players=players,
+                                                  started=True, color=c.color.value))
 
         log(f"match found: {white.name} vs {black.name}")
-        session_key = white.name
-        async with self._session_lock:
-            if session_key not in self._sessions:
-                self._sessions[session_key] = asyncio.Event()
-        done_event = self._sessions[session_key]
+        session = GameSession(white, black,
+                              on_done=(await self._get_or_create_done_event(room_id)).set)
 
         if conn is white:
-            try:
-                await GameSession(white, black, on_done=done_event.set).run()
-            finally:
-                async with self._session_lock:
-                    self._sessions.pop(session_key, None)
+            await self._run_session(room_id, session)
         else:
-            await done_event.wait()
+            await (await self._get_or_create_done_event(room_id)).wait()
+
+    # ── shared helpers ────────────────────────────────────────────────────────
+
+    async def _run_session(self, room_id: str, session: GameSession) -> None:
+        try:
+            await session.run()
+        finally:
+            self._room_manager.remove(room_id)
+            async with self._session_lock:
+                self._sessions.pop(room_id, None)
+
+    async def _get_or_create_done_event(self, room_id: str) -> asyncio.Event:
+        async with self._session_lock:
+            if room_id not in self._sessions:
+                self._sessions[room_id] = asyncio.Event()
+            return self._sessions[room_id]
+
+    @staticmethod
+    async def _safe_send(conn: PlayerConnection, msg) -> None:
+        try:
+            await conn.send(msg)
+        except ConnectionClosed:
+            pass
