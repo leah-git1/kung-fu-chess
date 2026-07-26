@@ -44,7 +44,7 @@ class AppServer:
             self._matchmaker.match()
 
     # ── one coroutine per connected client ────────────────────────────────────
-
+    #ELIF
     async def _on_connect(self, websocket) -> None:
         result = await authenticate(websocket)
         if result is None:

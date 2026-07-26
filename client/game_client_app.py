@@ -14,14 +14,16 @@ sys.path.insert(0, _LOGIC_DIR)
 from graphics import gfx_config
 from graphics.img_provider import GameImg, WindowManager
 from client.network.ws_client import WsClient
+from client.app_state import AppState
 from client.views.view_action import ViewAction
+from client.views.view_manager import ViewManager
 from client.views.connecting_view import ConnectingView
 from client.views.home_view import HomeView
 from client.views.matchmaking_view import MatchmakingView
 from client.views.room_dialog_view import RoomDialogView
 from client.views.room_waiting_view import RoomWaitingView
 from client.views.game_view import GameView
-from shared.messages import RoomStateMsg, RoomErrorMsg, LoginMsg, LoginOkMsg, LoginFailMsg, SearchTimeoutMsg
+from shared.messages import RoomStateMsg, RoomErrorMsg, LoginMsg, LoginOkMsg, LoginFailMsg
 from shared.constants import DEFAULT_PORT
 from shared.enums import Color
 from client.log_utils.client_logger import log
@@ -31,39 +33,34 @@ class GameClientApp:
     def __init__(self, host: str, port: int = DEFAULT_PORT,
                  player_name: str = "Player", password: str = "",
                  register: bool = False, rating: int = 1200):
-        self._player_name = player_name
-        self._password    = password
-        self._register    = register
-        self._rating      = rating
-        url = f"ws://{host}:{port}"
-
-        self._ws = WsClient(url)
-
-        self._connecting_view  = ConnectingView()
-        self._home_view        = HomeView()
-        self._matchmaking_view = MatchmakingView()
-        self._room_dialog_view = RoomDialogView()
-        self._room_waiting_view = RoomWaitingView()
-        self._game_view        = GameView()
-
+        self._state = AppState(player_name, password, register, rating)
+        self._ws    = WsClient(f"ws://{host}:{port}")
         self._window = WindowManager(
             gfx_config.WINDOW_TITLE,
             gfx_config.WINDOW_PX_W,
             gfx_config.WINDOW_PX_H,
         )
+        self._vm = self._build_view_manager()
 
-        self._color      = Color.WHITE
-        self._white_name = "White"
-        self._black_name = "Black"
-        self._room_id    = ""
-        self._current_view = self._connecting_view
+    def _build_view_manager(self) -> ViewManager:
+        s, ws = self._state, self._ws
+        ctx   = lambda: {"app_state": s, "ws_client": ws}
+        vm = ViewManager()
+        vm.register(ViewAction.GOTO_HOME,         HomeView(),         ctx)
+        vm.register(ViewAction.GOTO_MATCHMAKING,  MatchmakingView())
+        vm.register(ViewAction.GOTO_ROOM_DIALOG,  RoomDialogView(),   ctx)
+        vm.register(ViewAction.GOTO_ROOM_WAITING, RoomWaitingView(),  ctx)
+        vm.register(ViewAction.GOTO_GAME,         GameView(),         ctx)
+        return vm
 
     def run(self) -> None:
         self._ws.start()
-        log(f"connecting to server as {self._player_name}")
-        self._ws.send(LoginMsg(name=self._player_name, password=self._password,
-                               register=self._register))
-        self._current_view.on_enter({"status": "Connecting to server…"})
+        log(f"connecting to server as {self._state.player_name}")
+        self._ws.send(LoginMsg(name=self._state.player_name,
+                               password=self._state.password,
+                               register=self._state.register))
+
+        self._vm.init(ConnectingView(), {"status": "Connecting to server…"})
 
         last_ms = self._now_ms()
         while self._window.is_open():
@@ -77,7 +74,7 @@ class GameClientApp:
                 if not self._window.is_open():
                     return
 
-            self._current_view.tick()
+            self._vm.current.tick()
 
             for event in self._window.poll_events():
                 if self._dispatch_event(event) == "close":
@@ -89,7 +86,7 @@ class GameClientApp:
 
             canvas = GameImg.blank(gfx_config.WINDOW_PX_W, gfx_config.WINDOW_PX_H,
                                    (15, 15, 15, 255))
-            self._current_view.render(canvas)
+            self._vm.current.render(canvas)
             canvas.show(window_name=gfx_config.WINDOW_TITLE)
 
             remaining = gfx_config.FRAME_TIME_MS - elapsed
@@ -100,10 +97,10 @@ class GameClientApp:
 
     def _handle_server_message(self, msg) -> None:
         if isinstance(msg, LoginOkMsg):
-            self._player_name = msg.name
-            self._rating      = msg.elo
+            self._state.player_name = msg.name
+            self._state.rating      = msg.elo
             log(f"logged in as {msg.name} (ELO {msg.elo})")
-            self._switch_to_home()
+            self._vm.switch(ViewAction.GOTO_HOME)
             return
 
         if isinstance(msg, LoginFailMsg):
@@ -115,112 +112,61 @@ class GameClientApp:
         if isinstance(msg, RoomStateMsg) and msg.started:
             players = msg.players
             if len(players) == 2:
-                self._white_name = players[0]
-                self._black_name = players[1]
-            self._color = Color(msg.color) if msg.color else ""
-            self._room_id = msg.room_id
-            role = msg.color if msg.color else "spectator"
-            log(f"game starting — room={msg.room_id} role={role} players={players}")
-            self._switch_to_game()
-            return
-
-        if isinstance(msg, RoomStateMsg) and not msg.started and msg.room_id:
-            self._room_id = msg.room_id
-            log(f"room created — id={msg.room_id}, waiting for opponent")
-            if self._current_view is self._room_waiting_view:
-                self._room_waiting_view.handle_server_message(msg)
+                self._state.white_name = players[0]
+                self._state.black_name = players[1]
+            self._state.color   = Color(msg.color) if msg.color else ""
+            self._state.room_id = msg.room_id
+            log(f"game starting — room={msg.room_id} "
+                f"role={msg.color or 'spectator'} players={players}")
+            self._vm.switch(ViewAction.GOTO_GAME)
             return
 
         if isinstance(msg, RoomErrorMsg):
             log(f"room error: {msg.reason}", level="warning")
-            self._switch_to_home({"status_msg": msg.reason})
+            self._vm.switch(ViewAction.GOTO_HOME, extra={"status_msg": msg.reason})
             return
 
-        action = self._current_view.handle_server_message(msg)
+        action = self._vm.handle_server_message(msg)
         if action == ViewAction.GOTO_HOME:
-            # MatchmakingView returns GOTO_HOME on timeout — pass the message
-            self._switch_to_home({"status_msg": "No opponent found. Try again later."})
+            self._vm.switch(ViewAction.GOTO_HOME,
+                            extra={"status_msg": "No opponent found. Try again later."})
         elif action:
-            self._switch(action)
-
-    # ── view transitions ──────────────────────────────────────────────────────
-
-    def _switch_to_home(self, extra: dict = None) -> None:
-        self._current_view.on_exit()
-        ctx = {
-            "ws_client":   self._ws,
-            "player_name": self._player_name,
-            "rating":      self._rating,
-        }
-        if extra:
-            ctx.update(extra)
-        self._home_view.on_enter(ctx)
-        self._current_view = self._home_view
-
-    def _switch_to_matchmaking(self) -> None:
-        self._current_view.on_exit()
-        log("searching for opponent (matchmaking)")
-        self._matchmaking_view.on_enter({})
-        self._current_view = self._matchmaking_view
-
-    def _switch_to_game(self) -> None:
-        self._current_view.on_exit()
-        log(f"entering game view — room={self._room_id}")
-        self._game_view.on_enter({
-            "ws_client":   self._ws,
-            "color":       self._color,
-            "white_name":  self._white_name,
-            "black_name":  self._black_name,
-            "my_rating":   self._rating,
-            "my_name":     self._player_name,
-            "room_id":     self._room_id,
-        })
-        self._current_view = self._game_view
-
-    def _switch_to_room_dialog(self) -> None:
-        self._current_view.on_exit()
-        self._room_dialog_view.on_enter({"ws_client": self._ws})
-        self._current_view = self._room_dialog_view
-
-    def _switch_to_room_waiting(self) -> None:
-        self._current_view.on_exit()
-        self._room_waiting_view.on_enter({"room_id": self._room_id})
-        self._current_view = self._room_waiting_view
-
-    def _switch(self, action: ViewAction, context: dict = None) -> None:
-        if action == ViewAction.QUIT:
-            self._window.close()
-        elif action == ViewAction.GOTO_HOME:
-            self._switch_to_home(context or {})
-        elif action == ViewAction.GOTO_MATCHMAKING:
-            self._switch_to_matchmaking()
-        elif action == ViewAction.GOTO_ROOM_DIALOG:
-            self._switch_to_room_dialog()
-        elif action == ViewAction.GOTO_ROOM_WAITING:
-            self._switch_to_room_waiting()
-        elif action == ViewAction.GOTO_GAME:
-            self._switch_to_game()
+            self._vm.switch(action)
 
     # ── input dispatch ────────────────────────────────────────────────────────
 
     def _dispatch_event(self, event: dict):
         kind = event["type"]
-        if kind == gfx_config.EventType.RESIZE:
-            if hasattr(self._current_view, "handle_resize"):
-                self._current_view.handle_resize(event["width"], event["height"])
-        elif kind == gfx_config.EventType.LEFT_CLICK:
-            action = self._current_view.handle_click(event["x"], event["y"])
+        view = self._vm.current
+
+        def on_resize():
+            if hasattr(view, "handle_resize"):
+                view.handle_resize(event["width"], event["height"])
+
+        def on_left_click():
+            action = view.handle_click(event["x"], event["y"])
             if action == ViewAction.QUIT:
                 return "close"
             if action:
-                self._switch(action)
-        elif kind == gfx_config.EventType.RIGHT_CLICK:
-            if hasattr(self._current_view, "handle_right_click"):
-                self._current_view.handle_right_click(event["x"], event["y"])
-        elif kind == "key":
-            action = self._current_view.handle_key(event["key"])
+                self._vm.switch(action)
+
+        def on_right_click():
+            if hasattr(view, "handle_right_click"):
+                view.handle_right_click(event["x"], event["y"])
+
+        def on_key():
+            action = view.handle_key(event["key"])
             if action:
-                self._switch(action)
+                self._vm.switch(action)
+
+        registry = {
+            gfx_config.EventType.RESIZE:      on_resize,
+            gfx_config.EventType.LEFT_CLICK:  on_left_click,
+            gfx_config.EventType.RIGHT_CLICK: on_right_click,
+            "key":                            on_key,
+        }
+        if handler := registry.get(kind):
+            return handler()
 
     @staticmethod
     def _now_ms() -> int:

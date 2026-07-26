@@ -30,8 +30,9 @@ class GameView(BaseView):
     """
 
     def on_enter(self, context: dict) -> None:
+        s              = context["app_state"]
         self._ws       = context["ws_client"]
-        color          = context.get("color", Color.WHITE)
+        color          = s.color
         self._spectator = (color == "")
         self._color    = color if not self._spectator else Color.WHITE
         self._mirror   = BoardMirror(on_capture=self._on_capture)
@@ -41,13 +42,13 @@ class GameView(BaseView):
 
         bus = EventBus()
         self._renderer = GameRenderer(
-            context.get("white_name", "White"),
-            context.get("black_name", "Black"),
+            s.white_name,
+            s.black_name,
             bus,
-            my_name=context.get("my_name", ""),
-            my_rating=context.get("my_rating", 0),
+            my_name=s.player_name,
+            my_rating=s.rating,
             player_color=self._color.value if not self._spectator else "w",
-            room_id=context.get("room_id", ""),
+            room_id=s.room_id,
         )
         self._event_adapter = NetworkEventAdapter(bus, self._mirror)
 

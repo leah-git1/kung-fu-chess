@@ -1,16 +1,3 @@
-# -- Game over reasons --------------------------------------------------------
-class GameOverReason:
-    KING_CAPTURED         = "king captured"
-    OPPONENT_DISCONNECTED = "opponent disconnected"
-
-
-# -- Room IDs -----------------------------------------------------------------
-class RoomId:
-    MAIN = "main"
-
-ROOM_ID_LENGTH = 4  # characters in a generated room code (e.g. "A3F7")
-
-
 
 # -- Network ------------------------------------------------------------------
 DEFAULT_PORT             = 5555
@@ -38,3 +25,16 @@ MOVE_DURATION_PER_CELL   = 600   # ms per board cell travelled
 JUMP_DURATION            = 1000  # ms a piece is airborne during a jump
 LONG_REST_DURATION       = 2000  # ms cooldown after a move
 SHORT_REST_DURATION      = 1000  # ms cooldown after a jump
+
+# -- Game over reasons --------------------------------------------------------
+class GameOverReason:
+    KING_CAPTURED         = "king captured"
+    OPPONENT_DISCONNECTED = "opponent disconnected"
+
+
+# -- Room IDs -----------------------------------------------------------------
+class RoomId:
+    MAIN = "main"
+
+
+ROOM_ID_LENGTH = 4  # characters in a generated room code (e.g. "A3F7")

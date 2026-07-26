@@ -24,9 +24,10 @@ class HomeView(BaseView):
     """
 
     def on_enter(self, context: dict) -> None:
+        s                 = context["app_state"]
         self._ws          = context["ws_client"]
-        self._player_name = context.get("player_name", "Player")
-        self._rating      = context.get("rating", 1200)
+        self._player_name = s.player_name
+        self._rating      = s.rating
         self._status_msg  = context.get("status_msg", "")
         self._renderer    = HomeRenderer()
         self._play_rect   = None

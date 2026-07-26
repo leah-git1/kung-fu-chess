@@ -21,7 +21,8 @@ class RoomWaitingView(BaseView):
     """
 
     def on_enter(self, context: dict) -> None:
-        self._room_id  = context.get("room_id", "")
+        s              = context["app_state"]
+        self._room_id  = s.room_id
         self._renderer = ConnectingRenderer()
         self._status   = (f"Waiting for opponent…  Room: {self._room_id}"
                           if self._room_id else "Waiting for opponent…")
