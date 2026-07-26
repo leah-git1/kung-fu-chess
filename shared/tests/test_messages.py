@@ -1,4 +1,5 @@
 import pytest
+from shared.enums import PlayMode
 from shared.messages import (
     parse, HelloMsg, LoginMsg, LoginOkMsg, LoginFailMsg,
     MoveMsg, JumpMsg, StateUpdateMsg, MoveAckMsg, JumpAckMsg,
@@ -47,7 +48,16 @@ def test_login_fail_round_trip():
 # ── Matchmaking ───────────────────────────────────────────────────────────────
 
 def test_play_request_round_trip():
-    assert rt(PlayRequestMsg(mode="ranked")).mode == "ranked"
+    msg = rt(PlayRequestMsg(mode=PlayMode.RANKED))
+    assert msg.mode == PlayMode.RANKED
+
+
+def test_play_request_to_json_uses_value():
+    assert PlayRequestMsg(mode=PlayMode.RANKED).to_json()["mode"] == "ranked"
+
+
+def test_play_request_from_json_parses_enum():
+    assert PlayRequestMsg.from_json({"mode": "casual"}).mode == PlayMode.CASUAL
 
 
 def test_match_found_round_trip():
@@ -111,9 +121,16 @@ def test_state_update_motions_defaults():
     assert msg.motions == {"moves": [], "jumps": []}
 
 
-def test_state_update_to_json_fills_empty_motions():
-    d = StateUpdateMsg(board=[], time_ms=0, motions=None).to_json()
-    assert d["motions"] == {"moves": [], "jumps": []}
+def test_state_update_to_json_preserves_provided_motions():
+    motions = {"moves": [{"key": "wR"}], "jumps": []}
+    d = StateUpdateMsg(board=[], time_ms=0, motions=motions).to_json()
+    assert d["motions"] == motions
+
+
+def test_state_update_from_json_uses_provided_motions():
+    motions = {"moves": [], "jumps": [{"key": "wR"}]}
+    d = {"type": T.STATE_UPDATE, "board": [], "time_ms": 0, "motions": motions}
+    assert StateUpdateMsg.from_json(d).motions == motions
 
 
 def test_move_ack_round_trip():

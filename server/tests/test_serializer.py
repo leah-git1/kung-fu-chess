@@ -174,13 +174,32 @@ def test_cooldowns_to_json_short_rest_after_jump():
     assert cds[0]["finish_time"] - cds[0]["start_time"] == config.SHORT_REST_DURATION
 
 
+def test_cooldowns_to_json_cell_included():
+    game = _game({(0, 0): "wR"})
+    rook = game.get_piece_at((0, 0))
+    game.request_move(rook, (0, 0), (0, 2))
+    game.advance_time(2 * config.MOVE_DURATION_PER_CELL)
+    cds = cooldowns_to_json(game)
+    assert cds[0]["cell"] == [0, 2]
+
+
 def test_cooldowns_to_json_empty_after_cooldown_expires():
     game = _game({(0, 0): "wR"})
     rook = game.get_piece_at((0, 0))
     game.request_move(rook, (0, 0), (0, 2))
-    # Advance to arrival, then advance past the full cooldown in a second step
     game.advance_time(2 * config.MOVE_DURATION_PER_CELL)
     game.advance_time(config.LONG_REST_DURATION + 1)
+    assert cooldowns_to_json(game) == []
+
+
+def test_cooldowns_to_json_skips_piece_not_on_board():
+    """Piece in cooldown but removed from board (captured) must be skipped."""
+    game = _game({(0, 0): "wR"})
+    rook = game.get_piece_at((0, 0))
+    game.request_move(rook, (0, 0), (0, 2))
+    game.advance_time(2 * config.MOVE_DURATION_PER_CELL)
+    # Remove the piece from the board to simulate capture during cooldown
+    game._board.grid[0][2] = Piece.EMPTY
     assert cooldowns_to_json(game) == []
 
 

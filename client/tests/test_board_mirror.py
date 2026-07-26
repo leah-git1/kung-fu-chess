@@ -45,10 +45,11 @@ def _jump(key, cell, finish=1000):
     return {"key": key, "cell": list(cell), "finish_time": finish}
 
 
-def _cd(key, rest_type="long", start=0, finish=None):
+def _cd(key, rest_type="long", start=0, finish=None, cell=(0, 0)):
     if finish is None:
         finish = start + (LONG_REST_DURATION if rest_type == "long" else SHORT_REST_DURATION)
-    return {"key": key, "rest_type": rest_type, "start_time": start, "finish_time": finish}
+    return {"key": key, "rest_type": rest_type, "start_time": start,
+            "finish_time": finish, "cell": list(cell)}
 
 
 def _no_motions():
@@ -225,7 +226,7 @@ def test_cooldown_stub_created():
     m = BoardMirror()
     board = _board_with({(0, 2): "wR"})
     board[0][2]["s"] = "long_rest"
-    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR")]}
+    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", cell=(0, 2))]}
     m.apply_state_update(board, time_ms=0, motions=motions)
     assert len(m._cd_vms) == 1
 
@@ -234,7 +235,7 @@ def test_cooldown_stub_not_recreated():
     m = BoardMirror()
     board = _board_with({(0, 2): "wR"})
     board[0][2]["s"] = "long_rest"
-    cd = _cd("wR", finish=2600)
+    cd = _cd("wR", finish=2600, cell=(0, 2))
     motions = {"moves": [], "jumps": [], "cooldowns": [cd]}
     m.apply_state_update(board, time_ms=0, motions=motions)
     stub1 = list(m._cd_vms.values())[0]
@@ -248,7 +249,7 @@ def test_cooldown_progress_at_midpoint():
     board = _board_with({(0, 0): "wR"})
     board[0][0]["s"] = "long_rest"
     half = LONG_REST_DURATION // 2
-    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", "long", start=0, finish=LONG_REST_DURATION)]}
+    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", "long", start=0, finish=LONG_REST_DURATION, cell=(0, 0))]}
     m.apply_state_update(board, time_ms=half, motions=motions)
     piece = m.get_piece_at((0, 0))
     progress, rest_type = m.cooldown_progress(piece)
@@ -260,7 +261,7 @@ def test_cooldown_progress_short_rest_at_start():
     m = BoardMirror()
     board = _board_with({(0, 0): "wR"})
     board[0][0]["s"] = "short_rest"
-    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", "short", start=0)]}
+    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", "short", start=0, cell=(0, 0))]}
     m.apply_state_update(board, time_ms=0, motions=motions)
     piece = m.get_piece_at((0, 0))
     progress, rest_type = m.cooldown_progress(piece)
@@ -278,7 +279,7 @@ def test_cooldown_progress_clamped_to_one():
     m = BoardMirror()
     board = _board_with({(0, 0): "wR"})
     board[0][0]["s"] = "long_rest"
-    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", "long", start=0, finish=100)]}
+    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", "long", start=0, finish=100, cell=(0, 0))]}
     m.apply_state_update(board, time_ms=9999, motions=motions)
     progress, _ = m.cooldown_progress(m.get_piece_at((0, 0)))
     assert progress == 1.0
@@ -288,7 +289,7 @@ def test_cooldown_stub_removed_when_gone():
     m = BoardMirror()
     board = _board_with({(0, 2): "wR"})
     board[0][2]["s"] = "long_rest"
-    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR")]}
+    motions = {"moves": [], "jumps": [], "cooldowns": [_cd("wR", cell=(0, 2))]}
     m.apply_state_update(board, time_ms=0, motions=motions)
     m.apply_state_update(_board_with({(0, 2): "wR"}), time_ms=3000, motions=_no_motions())
     assert m._cd_vms == {}
