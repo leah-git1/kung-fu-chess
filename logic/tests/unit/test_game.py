@@ -2,6 +2,7 @@ import config
 from board.board import Board
 from board.piece import Piece
 from board.piece_type import PieceType
+from config import Color
 from game.game import Game
 
 
@@ -10,7 +11,7 @@ JUMP = config.JUMP_DURATION
 
 
 def _p(token):
-    return Piece(token[0], PieceType(token[1]))
+    return Piece(Color(token[0]), PieceType(token[1]))
 
 
 def _board(pieces: dict, rows=8, cols=8):
@@ -337,7 +338,7 @@ def test_apply_on_arrival_skipped_when_no_strategy():
     from board.piece import PieceState
     # Put a piece with piece_type=None (EMPTY) at destination -> strategy is None -> line 92
     game = Game(_board({}))
-    fake_piece = Piece("w", None)
+    fake_piece = Piece(Color.WHITE, None)
     game._board.set_piece(0, 1, fake_piece)
     motion = MoveMotion(fake_piece, (0, 0), (0, 1), 0)
     game._apply_on_arrival(motion)  # strategy is None -> returns at line 92

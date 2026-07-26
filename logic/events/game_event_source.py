@@ -17,7 +17,7 @@ class GameEventSource:
         self._prev, self._primed = curr, True
         if game.game_over and not self._game_over_published:
             self._game_over_published = True
-            self._bus.publish(GameOverEvent(winner_color=game.winner_color))
+            self._bus.publish(GameOverEvent(winner_color=game.winner_color.value))
 
     def _elapsed(self):
         return int(time.monotonic() * 1000) - self._start_ms
@@ -34,13 +34,13 @@ class GameEventSource:
             if pid in curr:
                 if curr[pid][1] != prev_cell:
                     self._bus.publish(PieceMovedEvent(
-                        piece.color, prev_cell, curr[pid][1], ms,
+                        piece.color.value, prev_cell, curr[pid][1], ms,
                         piece_name=piece.sprite_key[1]))
             else:
                 by = next((p2 for p2, c2 in curr.values() if c2 == prev_cell), None)
                 self._bus.publish(PieceCapturedEvent(
                     prev_cell, ms,
                     piece_value=piece.value,
-                    by_color=by.color if by else None,
-                    captured_color=piece.color,
+                    by_color=by.color.value if by else None,
+                    captured_color=piece.color.value,
                     captured_type=piece.piece_type.value))

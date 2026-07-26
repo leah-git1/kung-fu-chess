@@ -1,6 +1,7 @@
 from board.board import Board
 from board.piece import Piece
 from board.piece_type import PieceType
+from config import Color
 from errors.parse_error import ParseError
 import config
 
@@ -47,7 +48,7 @@ class BoardParser:
         if token == config.EMPTY_CELL:
             return Piece.EMPTY
         try:
-            color = token[0]
+            color = Color(token[0])
             piece_type = PieceType(token[1])
             return Piece(color, piece_type)
         except (ValueError, IndexError):

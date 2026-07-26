@@ -123,6 +123,8 @@ class GameClientApp:
 
     def _on_game_start(self, msg: RoomStateMsg) -> None:
         if not msg.started:
+            self._state.room_id = msg.room_id
+            self._vm.handle_server_message(msg)
             return
         players = msg.players
         if len(players) == 2:

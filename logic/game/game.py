@@ -1,4 +1,5 @@
 from board.piece import Piece
+from config import Color
 from rules.rule_engine import RuleEngine
 from realtime.real_time_arbiter import RealTimeArbiter
 import config
@@ -18,6 +19,10 @@ class Game:
     @property
     def game_over(self) -> bool:
         return self._game_over
+
+    @game_over.setter
+    def game_over(self, value: bool) -> None:
+        self._game_over = value
 
     @property
     def winner_color(self) -> str | None:
@@ -80,7 +85,7 @@ class Game:
     def has_piece_at(self, cell: tuple) -> bool:
         return self._board.get_piece(*cell) is not Piece.EMPTY
 
-    def is_own_piece(self, cell: tuple, color: str) -> bool:
+    def is_own_piece(self, cell: tuple, color: Color) -> bool:
         p = self._board.get_piece(*cell)
         return p is not Piece.EMPTY and p.color == color
 
@@ -102,7 +107,7 @@ class Game:
         for p in captured:
             if self._is_royal(p):
                 self._game_over = True
-                self._winner_color = "b" if p.color == "w" else "w"
+                self._winner_color = Color.BLACK if p.color == Color.WHITE else Color.WHITE
 
     def _process_arrivals(self, applied_moves) -> None:
         for move in applied_moves:

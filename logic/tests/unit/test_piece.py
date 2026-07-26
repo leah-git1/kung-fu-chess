@@ -1,9 +1,10 @@
 from board.piece import Piece
 from board.piece_type import PieceType
+from config import Color
 
 
 def _p(color, pt):
-    return Piece(color, pt)
+    return Piece(Color(color), pt)
 
 
 def test_same_piece_type_and_color_are_equal():

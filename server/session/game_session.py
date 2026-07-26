@@ -79,7 +79,7 @@ class GameSession:
 
             if self._game.game_over:
                 self._game_over_sent = True
-                winner = Color(self._game.winner_color)
+                winner = self._game.winner_color
                 loser  = Color.BLACK if winner == Color.WHITE else Color.WHITE
                 rating_service.apply_game_result(
                     self._players[winner].name,
@@ -101,7 +101,7 @@ class GameSession:
                     },
                 ))
 
-    async def _receive_loop(self, color: str) -> None:
+    async def _receive_loop(self, color: Color) -> None:
         conn = self._players[color]
         try:
             async for raw in conn.websocket:
@@ -123,10 +123,8 @@ class GameSession:
         if not self._game_over_sent:
             await self._disconnect_countdown(color)
 
-    async def _disconnect_countdown(self, disconnected_color: str) -> None:
-        """Counts down DISCONNECT_GRACE_S seconds, notifying the opponent each second.
-        If the player does not reconnect in time, they forfeit.
-        Reconnect support can be added here in the future by checking a reconnect flag."""
+    async def _disconnect_countdown(self, disconnected_color: Color) -> None:
+        """Counts down DISCONNECT_GRACE_S seconds, notifying the opponent each second."""
         other_color = Color.BLACK if disconnected_color == Color.WHITE else Color.WHITE
         other_conn  = self._players[other_color]
         log(f"{self._players[disconnected_color].name} disconnected — {DISCONNECT_GRACE_S}s grace")
@@ -149,12 +147,12 @@ class GameSession:
             await self._broadcast(GameOverMsg(winner=winner.value, reason=GameOverReason.OPPONENT_DISCONNECTED))
             log(f"game over — {self._players[loser].name} forfeited by disconnect")
 
-    async def _handle(self, color: str, msg) -> None:
+    async def _handle(self, color: Color, msg) -> None:
         conn = self._players[color]
         if isinstance(msg, MoveMsg):
             from_cell = tuple(msg.from_cell)
             piece = self._game.get_piece_at(from_cell)
-            if piece is None or piece.color != color.value:
+            if piece is None or piece.color != color:
                 await conn.send(ErrorMsg(reason="not your piece"))
                 return
             if apply_move(msg, self._game):
@@ -166,7 +164,7 @@ class GameSession:
         elif isinstance(msg, JumpMsg):
             cell = tuple(msg.cell)
             piece = self._game.get_piece_at(cell)
-            if piece is None or piece.color != color.value:
+            if piece is None or piece.color != color:
                 await conn.send(ErrorMsg(reason="not your piece"))
                 return
             if apply_jump(msg, self._game):

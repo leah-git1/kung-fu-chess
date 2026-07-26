@@ -2,6 +2,7 @@ import pytest
 from board.board_parser import BoardParser
 from board.piece import Piece
 from board.piece_type import PieceType
+from config import Color
 
 
 _parser = BoardParser()
@@ -17,7 +18,7 @@ def test_parses_correct_dimensions():
 def test_parses_piece_correctly():
     lines = ["Board:", "wK . .", "Commands:"]
     board = _parser.parse(lines)
-    assert board.get_piece(0, 0) == Piece("w", PieceType.KING)
+    assert board.get_piece(0, 0) == Piece(Color.WHITE, PieceType.KING)
 
 
 def test_parses_empty_cell():
@@ -50,14 +51,14 @@ def test_parses_all_piece_types():
     expected = [PieceType.KING, PieceType.QUEEN, PieceType.ROOK,
                 PieceType.BISHOP, PieceType.KNIGHT, PieceType.PAWN]
     for col, pt in enumerate(expected):
-        assert board.get_piece(0, col) == Piece("w", pt)
+        assert board.get_piece(0, col) == Piece(Color.WHITE, pt)
 
 
 def test_parses_black_pieces():
     lines = ["Board:", "bK bR", "Commands:"]
     board = _parser.parse(lines)
-    assert board.get_piece(0, 0) == Piece("b", PieceType.KING)
-    assert board.get_piece(0, 1) == Piece("b", PieceType.ROOK)
+    assert board.get_piece(0, 0) == Piece(Color.BLACK, PieceType.KING)
+    assert board.get_piece(0, 1) == Piece(Color.BLACK, PieceType.ROOK)
 
 
 def test_invalid_piece_type_raises():

@@ -6,7 +6,7 @@ apply_move     : MoveMsg  + Game → bool
 apply_jump     : JumpMsg  + Game → bool
 """
 from __future__ import annotations
-from shared.enums import RestType
+from config import RestType
 
 
 def board_to_json(game) -> list:

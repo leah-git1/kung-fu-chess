@@ -4,29 +4,45 @@
 
 A real-time chess variant where both players move simultaneously — no turns, no waiting.
 Inspired by the original Kung-Fu Chess game, built from scratch in Python using OpenCV for rendering.
+Supports network multiplayer via a WebSocket server with login, ELO rating, and room-based matchmaking.
 
 ---
 
 ## Screenshots
 
-**Start Screen**
+**Home Screen**
 <p align="center">
-  <img src="assets/start_screen.png" width="70%" />
+  <img src="assets/home.png" width="70%" />
+</p>
+
+**Room Dialog**
+<p align="center">
+  <img src="assets/room_dialog.png" width="70%" />
+</p>
+
+**Waiting Room**
+<p align="center">
+  <img src="assets/wating_room_dialog.png" width="70%" />
+</p>
+
+**Room with Both Players**
+<p align="center">
+  <img src="assets/room_dialog_both.png" width="70%" />
 </p>
 
 **Gameplay**
 <p align="center">
-  <img src="assets/gameplay_2.png" width="70%" />
+  <img src="assets/2_players_both.png" width="70%" />
 </p>
 
 **Cooldown Overlays**
 <p align="center">
-  <img src="assets/gameplay_cooldown.png" width="70%" />
+  <img src="assets/cooldown.png" width="70%" />
 </p>
 
 **Game Over**
 <p align="center">
-  <img src="assets/game_over.png" width="70%" />
+  <img src="assets/gameover.png" width="70%" />
 </p>
 
 ---
@@ -50,7 +66,26 @@ kung-fu-chess/
 │
 ├── assets/                        # README screenshots
 │
-└── logic/                         # All game code lives here
+├── shared/                        # Shared protocol (messages, enums, constants)
+│
+├── server/                        # WebSocket game server
+│   ├── auth/                      # Login / registration
+│   ├── db/                        # SQLite user database
+│   ├── session/                   # Room, player connection, game session
+│   ├── protocol/                  # Serializer (game state → wire format)
+│   ├── rating/                    # ELO rating service
+│   └── main.py                    # Server entry point
+│
+├── client/                        # Networked client
+│   ├── views/                     # View state machine (home, room, game…)
+│   ├── network/                   # WebSocket client + board mirror
+│   ├── graphics/                  # Rendering layer (OpenCV)
+│   │   ├── panels/                # UI overlays (room dialog, game over…)
+│   │   ├── sprites/               # Sprite loading and animation
+│   │   └── observers/             # Score board, move log
+│   └── main.py                    # Client entry point
+│
+└── logic/                         # Core game engine (also runs standalone)
     │
     ├── board/                     # Board and piece data model
     │   ├── board.py               # Board grid, get/set piece
@@ -75,49 +110,8 @@ kung-fu-chess/
     │   ├── input_controller.py    # Click → select / move / jump logic
     │   └── board_mapper.py        # Screen pixel → board cell mapping
     │
-    ├── commands/                  # Text command system (for scripted tests)
-    │   ├── commands.py
-    │   ├── command_parser.py
-    │   ├── click_command.py
-    │   ├── jump_command.py
-    │   ├── print_command.py
-    │   └── wait_command.py
-    │
-    ├── graphics/                  # Rendering layer (OpenCV only, no game engine)
-    │   ├── app.py                 # Main application loop
-    │   ├── board_renderer.py      # Draws the board with custom colors
-    │   ├── piece_renderer.py      # Draws pieces + cooldown overlays
-    │   ├── layout.py              # Window/board coordinate math
-    │   ├── gfx_config.py          # All graphics constants and colors
-    │   ├── img_provider.py        # GameImg and WindowManager (cv2 wrappers)
-    │   ├── input_adapter.py       # Routes window events to game controller
-    │   │
-    │   ├── sprites/               # Sprite loading and animation
-    │   │   ├── sprite_loader.py   # Loads PNG frames from asset folders
-    │   │   ├── animation.py       # Frame sequencing at a given FPS
-    │   │   └── animation_state_machine.py  # Per-piece animation state
-    │   │
-    │   ├── observers/             # Game event observers (MVC pattern)
-    │   │   ├── game_events.py     # Event dataclasses + observer base
-    │   │   ├── game_event_source.py  # Diffs board snapshots → events
-    │   │   ├── moves_log.py       # Logs moves per player with timestamps
-    │   │   └── score_board.py     # Tracks and renders captured piece score
-    │   │
-    │   ├── panels/                # UI overlay panels
-    │   │   ├── player_names_panel.py  # "Black vs White" title bar
-    │   │   ├── game_over_panel.py     # Winner overlay on game end
-    │   │   └── start_game_panel.py    # START GAME button on launch
-    │   │
-    │   └── assets/                # Sprite images and board image
-    │       ├── board/             # board.png + highlight overlays
-    │       └── pieces/            # Per-piece animated sprite folders
-    │           └── <color><Type>/ # e.g. wP/, bK/
-    │               └── states/
-    │                   ├── idle/
-    │                   ├── move/
-    │                   ├── jump/
-    │                   ├── long_rest/
-    │                   └── short_rest/
+    ├── graphics/                  # Standalone local rendering (OpenCV)
+    │   └── app.py                 # Local app entry point
     │
     ├── errors/                    # Custom exception types
     ├── texttests/                 # Text-script based integration test runner
@@ -127,7 +121,6 @@ kung-fu-chess/
     │   └── integration/           # Text-script integration scenarios
     │
     ├── config.py                  # Game constants (timing, piece values, etc.)
-    ├── img.py                     # Base Img class (cv2 wrapper)
     └── main.py                    # Entry point (text mode)
 ```
 
@@ -135,6 +128,19 @@ kung-fu-chess/
 
 ## Running the Game
 
+**Server:**
+```bash
+cd server
+py main.py
+```
+
+**Client:**
+```bash
+cd client
+py main.py
+```
+
+**Local (no network):**
 ```bash
 cd logic
 py graphics/app.py
@@ -154,6 +160,8 @@ py -m pytest tests/
 - **Python 3.10+**
 - **OpenCV** — rendering, window management, input events
 - **NumPy** — image compositing and alpha blending
+- **WebSockets** — real-time client/server communication
+- **SQLite** — user accounts and ELO persistence
 - **pytest** — unit and integration tests
 
 ---
@@ -170,10 +178,13 @@ py -m pytest tests/
 - [x] Game-over detection and winner overlay
 - [x] START GAME button — board is frozen until clicked
 - [x] Dark theme UI with gold accents
+- [x] Network multiplayer (WebSocket server + client)
+- [x] Login / registration with ELO rating
+- [x] Room system — create or join a room by code
+- [x] Matchmaking
 
 ## What's Still In Progress
 
-- [ ] Network multiplayer
 - [ ] Sound effects
 - [ ] Player name input screen
 - [ ] Game replay / history

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from enum import Enum
+from config import Color
 import config
 
 
@@ -28,7 +29,7 @@ class Piece:
 
     def __init__(
         self,
-        color: str,
+        color: Color,
         piece_type,
         is_royal: bool = False,
         promotion_type=None,
@@ -48,7 +49,7 @@ class Piece:
 
     @property
     def sprite_key(self) -> str:
-        return f"{self.color}{self.piece_type.value}"
+        return f"{self.color.value}{self.piece_type.value}"
 
     @property
     def state_name(self) -> str:
@@ -61,7 +62,7 @@ class Piece:
     def __repr__(self):
         if self is Piece.EMPTY:
             return config.EMPTY_CELL
-        return self.color + self.piece_type.value
+        return self.color.value + self.piece_type.value
 
     def __eq__(self, other):
         if isinstance(other, Piece):
@@ -74,4 +75,4 @@ class Piece:
         return hash((self.color, self.piece_type))
 
 
-Piece.EMPTY = Piece(color=config.EMPTY_CELL, piece_type=None)
+Piece.EMPTY = Piece(color=Color.SPECTATOR, piece_type=None)

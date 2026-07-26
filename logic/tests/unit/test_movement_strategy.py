@@ -1,6 +1,7 @@
 from board.board import Board
 from board.piece import Piece
 from board.piece_type import PieceType
+from config import Color
 from rules.piece_rules import (
     KingMovement, RookMovement, BishopMovement,
     QueenMovement, KnightMovement, PawnMovement,
@@ -10,7 +11,7 @@ from rules.piece_rules import (
 
 def _p(token):
     color, pt_char = token[0], token[1]
-    return Piece(color, PieceType(pt_char))
+    return Piece(Color(color), PieceType(pt_char))
 
 
 def empty_board(rows=8, cols=8):
