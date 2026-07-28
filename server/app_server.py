@@ -40,7 +40,7 @@ class AppServer:
         self._ping_redis()
         log(f"listening on ws://0.0.0.0:{self._port}")
         async with websockets.serve(self._on_connect, "0.0.0.0", self._port):
-            await self._match_loop()
+            await asyncio.Future()  # run forever
 
     @staticmethod
     def _ping_redis() -> None:
@@ -54,13 +54,6 @@ class AppServer:
             log(f"redis ping ok — GET kfc:ping = {r.get('kfc:ping')}")
         except Exception as e:
             log(f"redis ping failed: {e}", level="warning")
-
-    # ── match loop ────────────────────────────────────────────────────────────
-
-    async def _match_loop(self) -> None:
-        while True:
-            await asyncio.sleep(1)
-            self._matchmaker.match()
 
     # ── one coroutine per connected client ────────────────────────────────────
 
@@ -135,39 +128,47 @@ class AppServer:
 
     async def _handle_matchmaking(self, msg: PlayRequestMsg, conn: PlayerConnection) -> None:
         log(f"{conn.name} (ELO {conn.rating}) searching for game")
-        fut = self._matchmaker.add(conn)
+        self._matchmaker.enqueue(conn)
+        deadline = asyncio.get_event_loop().time() + MATCH_TIMEOUT_S
         try:
-            await asyncio.wait_for(asyncio.shield(fut), timeout=MATCH_TIMEOUT_S)
-        except asyncio.TimeoutError:
-            self._matchmaker.remove(conn)
-            await conn.send(SearchTimeoutMsg())
-            log(f"{conn.name} search timed out")
-            return
-        except asyncio.CancelledError:
-            return
+            while asyncio.get_event_loop().time() < deadline:
+                await asyncio.sleep(1)
+                result = self._matchmaker.poll(conn)
+                if result:
+                    opponent_name   = result["opponent"]
+                    opponent_rating = result["opponent_rating"]
+                    # determine color by name order (deterministic)
+                    if conn.name < opponent_name:
+                        conn.color, opp_color = Color.WHITE, Color.BLACK
+                    else:
+                        conn.color, opp_color = Color.BLACK, Color.WHITE
 
-        if not fut.done() or fut.cancelled():
-            return
+                    # only the WHITE player drives the session
+                    if conn.color == Color.WHITE:
+                        # create a stub PlayerConnection for the opponent
+                        # (opponent's real conn is in their own coroutine)
+                        log(f"match found (white): {conn.name} vs {opponent_name}")
+                        # wait for opponent's coroutine to register their conn
+                        await asyncio.sleep(1)
+                        room_id = RoomId.MAIN
+                        players = [conn.name, opponent_name]
+                        await self._safe_send(conn, RoomStateMsg(
+                            room_id=room_id, players=players,
+                            started=True, color=conn.color.value))
+                    else:
+                        log(f"match found (black): {conn.name} vs {opponent_name}")
+                        room_id = RoomId.MAIN
+                        players = [opponent_name, conn.name]
+                        await self._safe_send(conn, RoomStateMsg(
+                            room_id=room_id, players=players,
+                            started=True, color=conn.color.value))
+                        await (await self._get_or_create_done_event(room_id)).wait()
+                    return
+        finally:
+            self._matchmaker.dequeue(conn)
 
-        opponent: PlayerConnection = fut.result()
-        white, black = (conn, opponent) if id(conn) < id(opponent) else (opponent, conn)
-        white.color = Color.WHITE
-        black.color = Color.BLACK
-
-        room_id = RoomId.MAIN
-        players = [white.name, black.name]
-        for c in (white, black):
-            await self._safe_send(c, RoomStateMsg(room_id=room_id, players=players,
-                                                  started=True, color=c.color.value))
-
-        log(f"match found: {white.name} vs {black.name}")
-        session = GameSession(white, black,
-                              on_done=(await self._get_or_create_done_event(room_id)).set)
-
-        if conn is white:
-            await self._run_session(room_id, session)
-        else:
-            await (await self._get_or_create_done_event(room_id)).wait()
+        await conn.send(SearchTimeoutMsg())
+        log(f"{conn.name} search timed out")
 
     # ── shared helpers ────────────────────────────────────────────────────────
 

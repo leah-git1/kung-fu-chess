@@ -36,6 +36,17 @@ services:
     depends_on:
       - redis
 
+  matchmaker-service:
+    build:
+      context: .
+      dockerfile: matchmaker-service/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+
   rating-service:
     build:
       context: .
@@ -59,12 +70,15 @@ services:
       - ROOMS_PORT=8001
       - RATING_HOST=rating-service
       - RATING_PORT=8002
+      - MM_HOST=matchmaker-service
+      - MM_PORT=8003
     depends_on:
       - redis
       - auth-service
       - api-gateway
       - rooms-api
       - rating-service
+      - matchmaker-service
 
 volumes:
   kfc-db:
