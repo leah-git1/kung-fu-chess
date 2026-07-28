@@ -26,8 +26,10 @@ from shared.messages import StateUpdateMsg, GameOverMsg, ErrorMsg, MoveAckMsg, J
 from server.session.player_connection import PlayerConnection
 from server.protocol.serializer import board_to_json, motions_to_json, apply_move, apply_jump, cooldowns_to_json
 from server.logging.server_logger import log
-from server.rating import rating_service
 from websockets.exceptions import ConnectionClosed
+import httpx
+
+_RATING_URL = f"http://{os.getenv('RATING_HOST', 'localhost')}:{os.getenv('RATING_PORT', '8002')}"
 
 _STATE_UPDATE_INTERVAL_MS = STATE_UPDATE_INTERVAL_MS
 
@@ -71,6 +73,13 @@ class GameSession:
             if self._on_done:
                 self._on_done()
 
+    async def _apply_rating(self, winner: str, loser: str) -> None:
+        try:
+            httpx.post(f"{_RATING_URL}/rate",
+                       json={"winner": winner, "loser": loser}, timeout=5.0)
+        except httpx.RequestError as e:
+            log(f"rating service unreachable: {e}", level="warning")
+
     async def _tick_loop(self) -> None:
         interval = TICK_RATE_MS / 1000
         while not self._game_over_sent:
@@ -81,7 +90,7 @@ class GameSession:
                 self._game_over_sent = True
                 winner = self._game.winner_color
                 loser  = Color.BLACK if winner == Color.WHITE else Color.WHITE
-                rating_service.apply_game_result(
+                await self._apply_rating(
                     self._players[winner].name,
                     self._players[loser].name,
                 )
@@ -140,7 +149,7 @@ class GameSession:
             self._game_over_sent = True
             winner = other_color
             loser  = disconnected_color
-            rating_service.apply_game_result(
+            await self._apply_rating(
                 self._players[winner].name,
                 self._players[loser].name,
             )

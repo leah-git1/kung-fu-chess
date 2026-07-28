@@ -36,6 +36,15 @@ services:
     depends_on:
       - redis
 
+  rating-service:
+    build:
+      context: .
+      dockerfile: rating-service/Dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - kfc-db:/app/server/db
+
   kfc-server:
     build: .
     ports:
@@ -48,11 +57,14 @@ services:
       - AUTH_PORT=8000
       - ROOMS_HOST=rooms-api
       - ROOMS_PORT=8001
+      - RATING_HOST=rating-service
+      - RATING_PORT=8002
     depends_on:
       - redis
       - auth-service
       - api-gateway
       - rooms-api
+      - rating-service
 
 volumes:
   kfc-db:
