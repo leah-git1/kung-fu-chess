@@ -25,6 +25,17 @@ services:
       - auth-service
       - redis
 
+  rooms-api:
+    build:
+      context: .
+      dockerfile: rooms-api/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+
   kfc-server:
     build: .
     ports:
@@ -35,10 +46,13 @@ services:
       - REDIS_HOST=redis
       - AUTH_HOST=auth-service
       - AUTH_PORT=8000
+      - ROOMS_HOST=rooms-api
+      - ROOMS_PORT=8001
     depends_on:
       - redis
       - auth-service
       - api-gateway
+      - rooms-api
 
 volumes:
   kfc-db:
