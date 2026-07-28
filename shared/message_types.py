@@ -8,6 +8,7 @@ HELLO           = "hello"
 LOGIN           = "login"           
 LOGIN_OK        = "login_ok"        
 LOGIN_FAIL      = "login_fail"      
+TOKEN           = "token"           
 
 # ── Matchmaking ───────────────────────────────────────────────────────────────
 PLAY_REQUEST    = "play_request"    

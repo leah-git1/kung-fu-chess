@@ -1,44 +1,42 @@
-"""Handles LOGIN / REGISTER — delegates to the auth-service over HTTP."""
+"""
+WS handshake — validates the session token issued by the API Gateway.
+
+The client sends a single TokenMsg: { type: "token", token: "...", username: "...", rating: N }
+The server checks Redis for session:{token} == username, then deletes it (single-use).
+"""
 from __future__ import annotations
 import json
 import os
-import httpx
-from shared.messages import LoginOkMsg, LoginFailMsg, parse, LoginMsg
+import redis
 from server.logging.server_logger import log
 
-_AUTH_URL = f"http://{os.getenv('AUTH_HOST', 'localhost')}:{os.getenv('AUTH_PORT', '8000')}"
+
+def _redis() -> redis.Redis:
+    return redis.Redis(host=os.getenv("REDIS_HOST", "localhost"), port=6379,
+                       decode_responses=True)
 
 
 async def authenticate(websocket) -> tuple[str, int] | None:
-    async for raw in websocket:
-        try:
-            msg = parse(json.loads(raw))
-        except (json.JSONDecodeError, ValueError):
-            continue
+    try:
+        raw = await websocket.recv()
+        d   = json.loads(raw)
+    except Exception:
+        return None
 
-        if not isinstance(msg, LoginMsg):
-            continue
+    if d.get("type") != "token":
+        return None
 
-        endpoint = "/register" if msg.register else "/login"
-        try:
-            resp = httpx.post(
-                f"{_AUTH_URL}{endpoint}",
-                json={"username": msg.name, "password": msg.password},
-                timeout=5.0,
-            )
-        except httpx.RequestError as e:
-            log(f"auth service unreachable: {e}", level="error")
-            return None
+    token    = d.get("token", "")
+    username = d.get("username", "")
+    rating   = int(d.get("rating", 1200))
 
-        if resp.status_code == 200:
-            data = resp.json()
-            log(f"auth ok: {data['username']} (ELO {data['rating']}) "
-                f"{'registered' if msg.register else 'logged in'}")
-            await websocket.send(json.dumps(
-                LoginOkMsg(name=data["username"], elo=data["rating"]).to_json()
-            ))
-            return data["username"], data["rating"]
-        else:
-            reason = resp.json().get("error", "auth failed")
-            log(f"auth failed for '{msg.name}': {reason}", level="warning")
-            await websocket.send(json.dumps(LoginFailMsg(reason=reason).to_json()))
+    r = _redis()
+    stored = r.get(f"session:{token}")
+    if stored != username:
+        log(f"invalid token for '{username}'", level="warning")
+        await websocket.send(json.dumps({"type": "login_fail", "reason": "invalid or expired token"}))
+        return None
+
+    r.delete(f"session:{token}")  # single-use
+    log(f"token ok: {username} (ELO {rating})")
+    return username, rating

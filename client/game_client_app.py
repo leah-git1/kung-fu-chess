@@ -23,7 +23,7 @@ from client.views.matchmaking_view import MatchmakingView
 from client.views.room_dialog_view import RoomDialogView
 from client.views.room_waiting_view import RoomWaitingView
 from client.views.game_view import GameView
-from shared.messages import RoomStateMsg, RoomErrorMsg, LoginMsg, LoginOkMsg, LoginFailMsg
+from shared.messages import RoomStateMsg, RoomErrorMsg, TokenMsg
 from shared.constants import DEFAULT_PORT
 from shared.enums import Color
 from client.log_utils.client_logger import log
@@ -31,9 +31,8 @@ from client.log_utils.client_logger import log
 
 class GameClientApp:
     def __init__(self, host: str, port: int = DEFAULT_PORT,
-                 player_name: str = "Player", password: str = "",
-                 register: bool = False, rating: int = 1200):
-        self._state = AppState(player_name, password, register, rating)
+                 player_name: str = "Player", rating: int = 1200, token: str = ""):
+        self._state = AppState(player_name, rating, token)
         self._ws    = WsClient(f"ws://{host}:{port}")
         self._window = WindowManager(
             gfx_config.WINDOW_TITLE,
@@ -42,8 +41,6 @@ class GameClientApp:
         )
         self._vm = self._build_view_manager()
         self._registry = {
-            LoginOkMsg:   self._on_login_ok,
-            LoginFailMsg: self._on_login_fail,
             RoomStateMsg: self._on_game_start,
             RoomErrorMsg: self._on_room_error,
         }
@@ -62,9 +59,9 @@ class GameClientApp:
     def run(self) -> None:
         self._ws.start()
         log(f"connecting to server as {self._state.player_name}")
-        self._ws.send(LoginMsg(name=self._state.player_name,
-                               password=self._state.password,
-                               register=self._state.register))
+        self._ws.send(TokenMsg(token=self._state.token,
+                               username=self._state.player_name,
+                               rating=self._state.rating))
 
         self._vm.init(ConnectingView(), {"status": "Connecting to server…"})
 
@@ -110,21 +107,14 @@ class GameClientApp:
         elif action:
             self._vm.switch(action)
 
-    def _on_login_ok(self, msg: LoginOkMsg) -> None:
-        self._state.player_name = msg.name
-        self._state.rating      = msg.elo
-        log(f"logged in as {msg.name} (ELO {msg.elo})")
+    def _on_room_state_pre_start(self, msg: RoomStateMsg) -> None:
+        """RoomStateMsg(started=False) — server confirmed auth, we're in lobby."""
+        self._state.room_id = msg.room_id
         self._vm.switch(ViewAction.GOTO_HOME)
-
-    def _on_login_fail(self, msg: LoginFailMsg) -> None:
-        log(f"login failed: {msg.reason}", level="warning")
-        print(f"Auth failed: {msg.reason}")
-        self._window.close()
 
     def _on_game_start(self, msg: RoomStateMsg) -> None:
         if not msg.started:
-            self._state.room_id = msg.room_id
-            self._vm.handle_server_message(msg)
+            self._on_room_state_pre_start(msg)
             return
         players = msg.players
         if len(players) == 2:

@@ -16,10 +16,11 @@ def main(host: str = None, port: int = None, name: str = "Player"):
     if host:
         from client.game_client_app import GameClientApp
         from client.auth.shell_login import shell_login
-        from shared.constants import DEFAULT_PORT
-        username, password, register = shell_login()
+        from shared.constants import DEFAULT_PORT, DEFAULT_API_PORT
+        api_url = f"http://{host}:{DEFAULT_API_PORT}"
+        username, rating, token = shell_login(api_url)
         GameClientApp(host=host, port=port or DEFAULT_PORT,
-                      player_name=username, password=password, register=register).run()
+                      player_name=username, rating=rating, token=token).run()
     else:
         from client.graphics.app import GraphicsApp
         GraphicsApp().run()

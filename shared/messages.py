@@ -74,6 +74,20 @@ class LoginFailMsg:
         return cls(reason=d["reason"])
 
 
+@dataclass
+class TokenMsg:
+    token: str
+    username: str
+    rating: int
+
+    def to_json(self) -> dict:
+        return _base(T.TOKEN, {"token": self.token, "username": self.username, "rating": self.rating})
+
+    @classmethod
+    def from_json(cls, d: dict) -> "TokenMsg":
+        return cls(token=d["token"], username=d["username"], rating=d["rating"])
+
+
 # ── Matchmaking ───────────────────────────────────────────────────────────────
 
 @dataclass
@@ -320,6 +334,7 @@ REGISTRY: dict[str, type] = {
     T.LOGIN:                  LoginMsg,
     T.LOGIN_OK:               LoginOkMsg,
     T.LOGIN_FAIL:             LoginFailMsg,
+    T.TOKEN:                  TokenMsg,
     T.PLAY_REQUEST:           PlayRequestMsg,
     T.MATCH_FOUND:            MatchFoundMsg,
     T.SEARCH_TIMEOUT:         SearchTimeoutMsg,
