@@ -1,0 +1,18 @@
+# Dev / test artefacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+
+# Client — not needed in the server image
+client/
+
+# Assets / docs
+assets/
+logs/
+*.md
+
+# Local DB (use a volume mount instead)
+server/db/users.db
