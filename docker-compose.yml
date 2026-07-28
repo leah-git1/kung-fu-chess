@@ -4,6 +4,15 @@ services:
     ports:
       - "6379:6379"
 
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - kfc-db:/app/server/db
+
   kfc-server:
     build: .
     ports:
@@ -12,8 +21,11 @@ services:
       - kfc-db:/app/server/db
     environment:
       - REDIS_HOST=redis
+      - AUTH_HOST=auth-service
+      - AUTH_PORT=8000
     depends_on:
       - redis
+      - auth-service
 
 volumes:
   kfc-db:

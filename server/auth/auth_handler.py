@@ -1,19 +1,15 @@
-"""Handles LOGIN / REGISTER on a raw websocket before the player enters matchmaking."""
+"""Handles LOGIN / REGISTER — delegates to the auth-service over HTTP."""
 from __future__ import annotations
 import json
+import os
+import httpx
 from shared.messages import LoginOkMsg, LoginFailMsg, parse, LoginMsg
-from server.auth import auth_service
-from server.errors import AuthError, DatabaseError
 from server.logging.server_logger import log
+
+_AUTH_URL = f"http://{os.getenv('AUTH_HOST', 'localhost')}:{os.getenv('AUTH_PORT', '8000')}"
 
 
 async def authenticate(websocket) -> tuple[str, int] | None:
-    """
-    Reads LoginMsg messages until authentication succeeds.
-    msg.register=True  → register a new account
-    msg.register=False → login to an existing account
-    Returns (username, rating) on success, None if the socket closes.
-    """
     async for raw in websocket:
         try:
             msg = parse(json.loads(raw))
@@ -23,15 +19,26 @@ async def authenticate(websocket) -> tuple[str, int] | None:
         if not isinstance(msg, LoginMsg):
             continue
 
+        endpoint = "/register" if msg.register else "/login"
         try:
-            user = auth_service.register(msg.name, msg.password) if msg.register \
-                else auth_service.login(msg.name, msg.password)
-            log(f"auth ok: {user.username} (ELO {user.rating}) {'registered' if msg.register else 'logged in'}")
-            await websocket.send(json.dumps(LoginOkMsg(name=user.username, elo=user.rating).to_json()))
-            return user.username, user.rating
-        except AuthError as e:
-            log(f"auth failed for '{msg.name}': {e}", level="warning")
-            await websocket.send(json.dumps(LoginFailMsg(reason=str(e)).to_json()))
-        except DatabaseError as e:
-            log(f"database error during auth: {e}", level="error")
+            resp = httpx.post(
+                f"{_AUTH_URL}{endpoint}",
+                json={"username": msg.name, "password": msg.password},
+                timeout=5.0,
+            )
+        except httpx.RequestError as e:
+            log(f"auth service unreachable: {e}", level="error")
             return None
+
+        if resp.status_code == 200:
+            data = resp.json()
+            log(f"auth ok: {data['username']} (ELO {data['rating']}) "
+                f"{'registered' if msg.register else 'logged in'}")
+            await websocket.send(json.dumps(
+                LoginOkMsg(name=data["username"], elo=data["rating"]).to_json()
+            ))
+            return data["username"], data["rating"]
+        else:
+            reason = resp.json().get("error", "auth failed")
+            log(f"auth failed for '{msg.name}': {reason}", level="warning")
+            await websocket.send(json.dumps(LoginFailMsg(reason=reason).to_json()))

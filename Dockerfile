@@ -3,7 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install only server-side deps (no opencv/numpy needed in the container)
-RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org websockets bcrypt redis
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org websockets bcrypt redis httpx
 
 COPY shared/ shared/
 COPY logic/  logic/
