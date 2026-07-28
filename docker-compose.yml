@@ -1,0 +1,19 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  kfc-server:
+    build: .
+    ports:
+      - "5555:5555"
+    volumes:
+      - kfc-db:/app/server/db
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+
+volumes:
+  kfc-db:

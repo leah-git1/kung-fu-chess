@@ -37,9 +37,23 @@ class AppServer:
 
     async def start(self) -> None:
         init_db()
+        self._ping_redis()
         log(f"listening on ws://0.0.0.0:{self._port}")
         async with websockets.serve(self._on_connect, "0.0.0.0", self._port):
             await self._match_loop()
+
+    @staticmethod
+    def _ping_redis() -> None:
+        import os, redis as _redis
+        host = os.getenv("REDIS_HOST")
+        if not host:
+            return
+        try:
+            r = _redis.Redis(host=host, port=6379, decode_responses=True)
+            r.set("kfc:ping", "pong")
+            log(f"redis ping ok — GET kfc:ping = {r.get('kfc:ping')}")
+        except Exception as e:
+            log(f"redis ping failed: {e}", level="warning")
 
     # ── match loop ────────────────────────────────────────────────────────────
 
