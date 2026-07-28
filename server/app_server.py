@@ -10,11 +10,22 @@ sys.path.insert(0, _ROOT)
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from shared.messages import RoomStateMsg, RoomErrorMsg, SearchTimeoutMsg, parse, PlayRequestMsg, RoomCreateMsg, RoomJoinMsg
+from shared.messages import RoomStateMsg, RoomErrorMsg, SearchTimeoutMsg, parse, PlayRequestMsg, RoomCreateMsg, RoomJoinMsg, ShardConnectMsg
 from shared.constants import DEFAULT_PORT, MATCH_TIMEOUT_S, PLAY_REQUEST_TIMEOUT_S, RoomId
 import httpx
+import uuid
+import redis as _redis_lib
 
 _ALLOCATOR_URL = f"http://{os.getenv('ALLOCATOR_HOST', 'localhost')}:{os.getenv('ALLOCATOR_PORT', '8004')}"
+_SHARD_WS_URL  = os.getenv('SHARD_WS_URL', 'ws://localhost:5556')
+_SESSION_TTL   = 300
+
+
+def _issue_token(username: str) -> str:
+    token = uuid.uuid4().hex
+    r = _redis_lib.Redis(host=os.getenv('REDIS_HOST', 'localhost'), port=6379, decode_responses=True)
+    r.set(f"session:{token}", username, ex=_SESSION_TTL)
+    return token
 from shared.enums import Color
 from server.session.player_connection import PlayerConnection
 from server.session.game_session import GameSession
@@ -148,10 +159,9 @@ class AppServer:
                         conn.color = Color.BLACK
 
                     if conn.color == Color.WHITE:
-                        # WHITE allocates the room and starts the session
                         opponent_conn = self._pending.get(opponent_name)
                         if opponent_conn is None:
-                            await asyncio.sleep(1)  # give black coroutine time to register
+                            await asyncio.sleep(1)
                             opponent_conn = self._pending.get(opponent_name)
                         if opponent_conn is None:
                             log(f"opponent conn not found for {opponent_name}", level="warning")
@@ -167,20 +177,20 @@ class AppServer:
 
                         opponent_conn.color = Color.BLACK
                         players = [conn.name, opponent_name]
-                        for c, col in ((conn, Color.WHITE), (opponent_conn, Color.BLACK)):
-                            await self._safe_send(c, RoomStateMsg(
-                                room_id=room_id, players=players,
-                                started=True, color=col.value))
-
-                        session = GameSession(
-                            conn, opponent_conn,
-                            on_done=(await self._get_or_create_done_event(room_id)).set
-                        )
-                        await self._run_session(room_id, session)
+                        white_token = _issue_token(conn.name)
+                        black_token = _issue_token(opponent_name)
+                        for c, col, tok in ((conn, Color.WHITE, white_token),
+                                            (opponent_conn, Color.BLACK, black_token)):
+                            await self._safe_send(c, ShardConnectMsg(
+                                shard_url=_SHARD_WS_URL,
+                                room_id=room_id,
+                                token=tok,
+                                color=col.value,
+                                players=players,
+                            ))
+                        log(f"sent ShardConnectMsg to both players for room {room_id}")
                     else:
-                        # BLACK just waits — WHITE will start the session
-                        log(f"match found (black): {conn.name} vs {opponent_name}")
-                        await (await self._get_or_create_done_event(RoomId.MAIN)).wait()
+                        log(f"match found (black): {conn.name} vs {opponent_name} — waiting for shard redirect")
                     return
         finally:
             self._pending.pop(conn.name, None)

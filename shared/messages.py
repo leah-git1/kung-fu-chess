@@ -302,6 +302,25 @@ class LogEventMsg:
 # ── Errors / connection ───────────────────────────────────────────────────────
 
 @dataclass
+class ShardConnectMsg:
+    shard_url: str
+    room_id: str
+    token: str
+    color: str
+    players: list[str]
+
+    def to_json(self) -> dict:
+        return _base(T.SHARD_CONNECT, {"shard_url": self.shard_url, "room_id": self.room_id,
+                                       "token": self.token, "color": self.color,
+                                       "players": self.players})
+
+    @classmethod
+    def from_json(cls, d: dict) -> "ShardConnectMsg":
+        return cls(shard_url=d["shard_url"], room_id=d["room_id"], token=d["token"],
+                   color=d["color"], players=d["players"])
+
+
+@dataclass
 class ErrorMsg:
     reason: str
 
@@ -351,6 +370,7 @@ REGISTRY: dict[str, type] = {
     T.GAME_OVER:              GameOverMsg,
     T.RESIGN:                 ResignMsg,
     T.LOG_EVENT:              LogEventMsg,
+    T.SHARD_CONNECT:          ShardConnectMsg,
     T.ERROR:                  ErrorMsg,
     T.OPPONENT_DISCONNECTED:  OpponentDisconnectedMsg,
 }

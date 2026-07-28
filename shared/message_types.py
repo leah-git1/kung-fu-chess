@@ -34,6 +34,9 @@ RESIGN          = "resign"
 # ── Events / logging ─────────────────────────────────────────────────────────
 LOG_EVENT       = "log_event"       
 
+# ── Shard routing ────────────────────────────────────────────────────────────
+SHARD_CONNECT   = "shard_connect"   # server → client: connect to this shard
+
 # ── Errors / connection ───────────────────────────────────────────────────────
 ERROR                   = "error"               
 OPPONENT_DISCONNECTED   = "opponent_disconnected"  

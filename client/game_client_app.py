@@ -23,7 +23,7 @@ from client.views.matchmaking_view import MatchmakingView
 from client.views.room_dialog_view import RoomDialogView
 from client.views.room_waiting_view import RoomWaitingView
 from client.views.game_view import GameView
-from shared.messages import RoomStateMsg, RoomErrorMsg, TokenMsg
+from shared.messages import RoomStateMsg, RoomErrorMsg, TokenMsg, ShardConnectMsg
 from shared.constants import DEFAULT_PORT
 from shared.enums import Color
 from client.log_utils.client_logger import log
@@ -41,8 +41,9 @@ class GameClientApp:
         )
         self._vm = self._build_view_manager()
         self._registry = {
-            RoomStateMsg: self._on_game_start,
-            RoomErrorMsg: self._on_room_error,
+            RoomStateMsg:     self._on_game_start,
+            RoomErrorMsg:     self._on_room_error,
+            ShardConnectMsg:  self._on_shard_connect,
         }
 
     def _build_view_manager(self) -> ViewManager:
@@ -106,6 +107,23 @@ class GameClientApp:
                             extra={"status_msg": "No opponent found. Try again later."})
         elif action:
             self._vm.switch(action)
+
+    def _on_shard_connect(self, msg: ShardConnectMsg) -> None:
+        """Server told us to connect to the game shard directly."""
+        players = msg.players
+        self._state.white_name = players[0]
+        self._state.black_name = players[1]
+        self._state.color  = Color(msg.color) if msg.color else Color.SPECTATOR
+        self._state.room_id = msg.room_id
+        log(f"connecting to shard {msg.shard_url} room={msg.room_id} color={msg.color}")
+        # replace the WS connection with one pointing at the shard
+        self._ws.reconnect(msg.shard_url, first_msg={
+            "type": "shard_join",
+            "room_id": msg.room_id,
+            "token": msg.token,
+            "color": msg.color,
+        })
+        self._vm.switch(ViewAction.GOTO_GAME)
 
     def _on_room_state_pre_start(self, msg: RoomStateMsg) -> None:
         """RoomStateMsg(started=False) — server confirmed auth, we're in lobby."""

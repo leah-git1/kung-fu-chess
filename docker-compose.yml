@@ -56,6 +56,23 @@ services:
     volumes:
       - kfc-db:/app/server/db
 
+  game-shard:
+    build:
+      context: .
+      dockerfile: game-shard/Dockerfile
+    ports:
+      - "5556:5556"
+    volumes:
+      - kfc-db:/app/server/db
+    environment:
+      - REDIS_HOST=redis
+      - RATING_HOST=rating-service
+      - RATING_PORT=8002
+      - SHARD_PORT=5556
+    depends_on:
+      - redis
+      - rating-service
+
   game-allocator:
     build:
       context: .
@@ -89,6 +106,7 @@ services:
       - MM_PORT=8003
       - ALLOCATOR_HOST=game-allocator
       - ALLOCATOR_PORT=8004
+      - SHARD_WS_URL=ws://localhost:5556
     depends_on:
       - redis
       - auth-service
