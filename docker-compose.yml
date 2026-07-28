@@ -56,6 +56,21 @@ services:
     volumes:
       - kfc-db:/app/server/db
 
+  game-allocator:
+    build:
+      context: .
+      dockerfile: game-allocator/Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - REDIS_HOST=redis
+      - ROOMS_HOST=rooms-api
+      - ROOMS_PORT=8001
+      - SHARD_ADDR=kfc-server:5555
+    depends_on:
+      - redis
+      - rooms-api
+
   kfc-server:
     build: .
     ports:
@@ -72,6 +87,8 @@ services:
       - RATING_PORT=8002
       - MM_HOST=matchmaker-service
       - MM_PORT=8003
+      - ALLOCATOR_HOST=game-allocator
+      - ALLOCATOR_PORT=8004
     depends_on:
       - redis
       - auth-service
@@ -79,6 +96,7 @@ services:
       - rooms-api
       - rating-service
       - matchmaker-service
+      - game-allocator
 
 volumes:
   kfc-db:

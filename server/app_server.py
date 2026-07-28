@@ -12,6 +12,9 @@ from websockets.exceptions import ConnectionClosed
 
 from shared.messages import RoomStateMsg, RoomErrorMsg, SearchTimeoutMsg, parse, PlayRequestMsg, RoomCreateMsg, RoomJoinMsg
 from shared.constants import DEFAULT_PORT, MATCH_TIMEOUT_S, PLAY_REQUEST_TIMEOUT_S, RoomId
+import httpx
+
+_ALLOCATOR_URL = f"http://{os.getenv('ALLOCATOR_HOST', 'localhost')}:{os.getenv('ALLOCATOR_PORT', '8004')}"
 from shared.enums import Color
 from server.session.player_connection import PlayerConnection
 from server.session.game_session import GameSession
@@ -29,6 +32,7 @@ class AppServer:
         self._room_manager = RoomManager()
         self._sessions: dict[str, asyncio.Event] = {}  # room_id -> done event
         self._session_lock = asyncio.Lock()
+        self._pending: dict[str, PlayerConnection] = {}  # name -> conn waiting for match
         self._registry = {
             RoomCreateMsg:  self._handle_room_create,
             RoomJoinMsg:    self._handle_room_join,
@@ -129,42 +133,57 @@ class AppServer:
     async def _handle_matchmaking(self, msg: PlayRequestMsg, conn: PlayerConnection) -> None:
         log(f"{conn.name} (ELO {conn.rating}) searching for game")
         self._matchmaker.enqueue(conn)
+        self._pending[conn.name] = conn
         deadline = asyncio.get_event_loop().time() + MATCH_TIMEOUT_S
         try:
             while asyncio.get_event_loop().time() < deadline:
                 await asyncio.sleep(1)
                 result = self._matchmaker.poll(conn)
                 if result:
-                    opponent_name   = result["opponent"]
-                    opponent_rating = result["opponent_rating"]
+                    opponent_name = result["opponent"]
                     # determine color by name order (deterministic)
                     if conn.name < opponent_name:
-                        conn.color, opp_color = Color.WHITE, Color.BLACK
+                        conn.color = Color.WHITE
                     else:
-                        conn.color, opp_color = Color.BLACK, Color.WHITE
+                        conn.color = Color.BLACK
 
-                    # only the WHITE player drives the session
                     if conn.color == Color.WHITE:
-                        # create a stub PlayerConnection for the opponent
-                        # (opponent's real conn is in their own coroutine)
-                        log(f"match found (white): {conn.name} vs {opponent_name}")
-                        # wait for opponent's coroutine to register their conn
-                        await asyncio.sleep(1)
-                        room_id = RoomId.MAIN
+                        # WHITE allocates the room and starts the session
+                        opponent_conn = self._pending.get(opponent_name)
+                        if opponent_conn is None:
+                            await asyncio.sleep(1)  # give black coroutine time to register
+                            opponent_conn = self._pending.get(opponent_name)
+                        if opponent_conn is None:
+                            log(f"opponent conn not found for {opponent_name}", level="warning")
+                            return
+
+                        alloc = httpx.post(
+                            f"{_ALLOCATOR_URL}/allocate",
+                            json={"white": conn.name, "black": opponent_name},
+                            timeout=5.0,
+                        ).json()
+                        room_id = alloc["room_id"]
+                        log(f"allocated room {room_id} on shard {alloc['shard']}")
+
+                        opponent_conn.color = Color.BLACK
                         players = [conn.name, opponent_name]
-                        await self._safe_send(conn, RoomStateMsg(
-                            room_id=room_id, players=players,
-                            started=True, color=conn.color.value))
+                        for c, col in ((conn, Color.WHITE), (opponent_conn, Color.BLACK)):
+                            await self._safe_send(c, RoomStateMsg(
+                                room_id=room_id, players=players,
+                                started=True, color=col.value))
+
+                        session = GameSession(
+                            conn, opponent_conn,
+                            on_done=(await self._get_or_create_done_event(room_id)).set
+                        )
+                        await self._run_session(room_id, session)
                     else:
+                        # BLACK just waits — WHITE will start the session
                         log(f"match found (black): {conn.name} vs {opponent_name}")
-                        room_id = RoomId.MAIN
-                        players = [opponent_name, conn.name]
-                        await self._safe_send(conn, RoomStateMsg(
-                            room_id=room_id, players=players,
-                            started=True, color=conn.color.value))
-                        await (await self._get_or_create_done_event(room_id)).wait()
+                        await (await self._get_or_create_done_event(RoomId.MAIN)).wait()
                     return
         finally:
+            self._pending.pop(conn.name, None)
             self._matchmaker.dequeue(conn)
 
         await conn.send(SearchTimeoutMsg())
