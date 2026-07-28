@@ -38,3 +38,4 @@ class RoomId:
 
 
 ROOM_ID_LENGTH = 4  # characters in a generated room code (e.g. "A3F7")
+ROOM_TTL_S     = 7200  # Redis TTL for room registry keys (2 hours safety net)
