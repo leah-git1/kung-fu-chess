@@ -84,12 +84,14 @@ services:
       context: .
       dockerfile: services/game-shard/Dockerfile
     ports:
-      - "5556:5556"
+      - "5556-5559:5556-5559"
     environment:
       - REDIS_HOST=redis
       - RATING_HOST=rating-service
       - RATING_PORT=8002
       - SHARD_PORT=5556
+      - SHARD_HOST=game-shard
+      - NUM_WORKERS=2
     depends_on:
       - redis
       - rating-service
@@ -122,7 +124,6 @@ services:
       - ROOMS_PORT=8001
       - ALLOCATOR_HOST=game-allocator
       - ALLOCATOR_PORT=8004
-      - SHARD_WS_URL=ws://localhost:5556
       - WS_PORT=5555
     depends_on:
       - redis

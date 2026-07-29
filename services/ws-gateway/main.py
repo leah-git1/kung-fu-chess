@@ -39,7 +39,6 @@ from server.logging.server_logger import log
 _MM_URL        = f"http://{os.getenv('MM_HOST','localhost')}:{os.getenv('MM_PORT','8003')}"
 _ROOMS_URL     = f"http://{os.getenv('ROOMS_HOST','localhost')}:{os.getenv('ROOMS_PORT','8001')}"
 _ALLOCATOR_URL = f"http://{os.getenv('ALLOCATOR_HOST','localhost')}:{os.getenv('ALLOCATOR_PORT','8004')}"
-_SHARD_WS_URL  = os.getenv("SHARD_WS_URL", "ws://localhost:5556")
 _SESSION_TTL   = 300
 
 # in-process registry of connections waiting for a match (same-process only)
@@ -139,14 +138,15 @@ async def _handle_matchmaking(msg: PlayRequestMsg, conn: PlayerConnection) -> No
                         alloc = (await client.post(f"{_ALLOCATOR_URL}/allocate",
                                                    json={"white": conn.name, "black": opponent_name},
                                                    timeout=5.0)).json()
-                    room_id = alloc["room_id"]
-                    log(f"allocated room {room_id}")
+                    room_id   = alloc["room_id"]
+                    shard_url = alloc["shard_url"]
+                    log(f"allocated room {room_id} → {shard_url}")
 
                     opp_conn.color = Color.BLACK
                     players = [conn.name, opponent_name]
                     for c, col in ((conn, Color.WHITE), (opp_conn, Color.BLACK)):
                         await _safe_send(c, ShardConnectMsg(
-                            shard_url=_SHARD_WS_URL, room_id=room_id,
+                            shard_url=shard_url, room_id=room_id,
                             token=await _issue_token(c.name), color=col.value, players=players,
                         ))
                     _pending.pop(opponent_name, None)
@@ -195,7 +195,7 @@ async def _handle_room_create(msg: RoomCreateMsg, conn: PlayerConnection) -> Non
                 players = [conn.name, black_name]
                 for c, col in ((conn, Color.WHITE), (black_conn, Color.BLACK)):
                     await _safe_send(c, ShardConnectMsg(
-                        shard_url=_SHARD_WS_URL, room_id=alloc["room_id"],
+                        shard_url=alloc["shard_url"], room_id=alloc["room_id"],
                         token=await _issue_token(c.name), color=col.value, players=players,
                     ))
                 _pending.pop(black_name, None)
