@@ -24,6 +24,8 @@ from contextlib import asynccontextmanager
 _ROOMS_URL          = f"http://{os.getenv('ROOMS_HOST', 'localhost')}:{os.getenv('ROOMS_PORT', '8001')}"
 _NATS_URL           = os.getenv("NATS_URL", "nats://localhost:4222")
 _SHARD_PUBLIC_HOST  = os.getenv("SHARD_PUBLIC_HOST", "localhost")
+_SHARD_PORT_BASE    = int(os.getenv("SHARD_PORT_BASE", "5556"))       # internal base port
+_SHARD_PUBLIC_PORT_BASE = int(os.getenv("SHARD_PUBLIC_PORT_BASE", str(_SHARD_PORT_BASE)))
 _SHARD_TTL          = 7200
 _SUB_SUBJECT = "kfc.matched"
 _PUB_SUBJECT = "kfc.allocated"
@@ -64,8 +66,9 @@ def _do_allocate(white: str, black: str) -> dict | None:
                       "white": white, "black": black}),
           ex=_SHARD_TTL)
 
+    public_port = _SHARD_PUBLIC_PORT_BASE + (worker["port"] - _SHARD_PORT_BASE)
     return {"room_id": room_id,
-            "shard_url": f"ws://{_SHARD_PUBLIC_HOST}:{worker['port']}",
+            "shard_url": f"ws://{_SHARD_PUBLIC_HOST}:{public_port}",
             "white": white, "black": black}
 
 

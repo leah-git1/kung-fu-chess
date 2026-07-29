@@ -12,12 +12,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "logic"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
-def main(host: str = None, port: int = None, name: str = "Player"):
+def main(host: str = None, port: int = None, api_port: int = None, name: str = "Player"):
     if host:
         from client.game_client_app import GameClientApp
         from client.auth.shell_login import shell_login
         from shared.constants import DEFAULT_PORT, DEFAULT_API_PORT
-        api_url = f"http://{host}:{DEFAULT_API_PORT}"
+        api_url = f"http://{host}:{api_port or DEFAULT_API_PORT}"
         username, rating, token = shell_login(api_url)
         GameClientApp(host=host, port=port or DEFAULT_PORT,
                       player_name=username, rating=rating, token=token).run()
@@ -31,5 +31,6 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--host", default=None)
     p.add_argument("--port", type=int, default=None)
+    p.add_argument("--api-port", type=int, default=None, dest="api_port")
     p.add_argument("--name", default="Player")
     main(**vars(p.parse_args()))
