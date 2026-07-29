@@ -101,16 +101,16 @@ class BoardMirror:
             if cell not in occupied:
                 del self._cell_registry[cell]
 
-        # ── capture detection — fire for every cell that lost its piece ──────
+        # ── capture detection — fire only when an enemy piece lands on the cell ──
         if self._on_capture:
             for r, row in enumerate(self._grid):
                 for c, vm in enumerate(row):
                     if vm is None:
                         continue
                     new_vm = new_grid[r][c]
-                    if new_vm is None or new_vm.sprite_key != vm.sprite_key:
-                        self._on_capture(vm, (r, c), time_ms,
-                                         new_vm.color if new_vm is not None else None)
+                    # capture: cell now holds an enemy piece (attacker landed here)
+                    if new_vm is not None and new_vm.sprite_key != vm.sprite_key:
+                        self._on_capture(vm, (r, c), time_ms, new_vm.color)
 
         self._grid = new_grid
 

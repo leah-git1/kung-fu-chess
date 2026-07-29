@@ -83,38 +83,35 @@ services:
       - REDIS_HOST=redis
       - ROOMS_HOST=rooms-api
       - ROOMS_PORT=8001
-      - SHARD_ADDR=kfc-server:5555
+      - SHARD_ADDR=game-shard:5556
     depends_on:
       - redis
       - rooms-api
+      - game-shard
 
-  kfc-server:
-    build: .
+  ws-gateway:
+    build:
+      context: .
+      dockerfile: ws-gateway/Dockerfile
     ports:
       - "5555:5555"
-    volumes:
-      - kfc-db:/app/server/db
     environment:
       - REDIS_HOST=redis
-      - AUTH_HOST=auth-service
-      - AUTH_PORT=8000
-      - ROOMS_HOST=rooms-api
-      - ROOMS_PORT=8001
-      - RATING_HOST=rating-service
-      - RATING_PORT=8002
       - MM_HOST=matchmaker-service
       - MM_PORT=8003
+      - ROOMS_HOST=rooms-api
+      - ROOMS_PORT=8001
       - ALLOCATOR_HOST=game-allocator
       - ALLOCATOR_PORT=8004
       - SHARD_WS_URL=ws://localhost:5556
+      - WS_PORT=5555
     depends_on:
       - redis
-      - auth-service
       - api-gateway
       - rooms-api
-      - rating-service
       - matchmaker-service
       - game-allocator
+      - game-shard
 
 volumes:
   kfc-db:

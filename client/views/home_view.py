@@ -30,19 +30,17 @@ class HomeView(BaseView):
         self._rating      = s.rating
         self._status_msg  = context.get("status_msg", "")
         self._renderer    = HomeRenderer()
-        self._play_rect   = None
-        self._room_rect   = None
+        self._play_rect   = (0, 0, 0, 0)
+        self._room_rect   = (0, 0, 0, 0)
 
     def handle_click(self, x: int, y: int) -> ViewAction | None:
-        if self._play_rect:
-            bx, by, bw, bh = self._play_rect
-            if bx <= x <= bx + bw and by <= y <= by + bh:
-                self._ws.send(PlayRequestMsg(mode=PlayMode.RANKED))
-                return ViewAction.GOTO_MATCHMAKING
-        if self._room_rect:
-            bx, by, bw, bh = self._room_rect
-            if bx <= x <= bx + bw and by <= y <= by + bh:
-                return ViewAction.GOTO_ROOM_DIALOG
+        bx, by, bw, bh = self._play_rect
+        if bw and bx <= x <= bx + bw and by <= y <= by + bh:
+            self._ws.send(PlayRequestMsg(mode=PlayMode.RANKED))
+            return ViewAction.GOTO_MATCHMAKING
+        bx, by, bw, bh = self._room_rect
+        if bw and bx <= x <= bx + bw and by <= y <= by + bh:
+            return ViewAction.GOTO_ROOM_DIALOG
         return None
 
     def render(self, canvas) -> None:

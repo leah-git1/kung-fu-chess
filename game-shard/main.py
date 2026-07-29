@@ -75,7 +75,8 @@ async def _on_connect(websocket) -> None:
 
     async with _waiting_lock:
         if room_id not in _waiting:
-            _waiting[room_id] = {"white": None, "black": None, "ready": asyncio.Event()}
+            _waiting[room_id] = {"white": None, "black": None,
+                                 "ready": asyncio.Event(), "done": asyncio.Event()}
         slot = _waiting[room_id]
         if conn_color == Color.WHITE:
             slot["white"] = conn
@@ -90,24 +91,23 @@ async def _on_connect(websocket) -> None:
 
     slot = _waiting[room_id]
     white, black = slot["white"], slot["black"]
+    done_event = slot["done"]
 
-    # only WHITE drives the session
     if conn_color == Color.WHITE:
         log(f"shard: starting session room={room_id} w={white.name} b={black.name}")
-        session = GameSession(white, black, on_done=lambda: _cleanup(room_id))
+        session = GameSession(white, black, on_done=lambda: _cleanup(room_id, done_event))
         await session.run()
     else:
-        # BLACK's coroutine just keeps the websocket alive — GameSession drives it
-        try:
-            await asyncio.Future()
-        except asyncio.CancelledError:
-            pass
+        # BLACK: GameSession owns the websocket — just wait until the session ends
+        await done_event.wait()
 
 
-def _cleanup(room_id: str) -> None:
+def _cleanup(room_id: str, done_event: asyncio.Event | None = None) -> None:
     _waiting.pop(room_id, None)
     _r().delete(f"shard:{room_id}")
     log(f"shard: room {room_id} cleaned up")
+    if done_event:
+        done_event.set()
 
 
 async def main() -> None:

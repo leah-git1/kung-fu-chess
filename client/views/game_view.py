@@ -16,7 +16,7 @@ from events.network_event_adapter import NetworkEventAdapter
 from client.network.board_mirror import BoardMirror
 from client.views.base_view import BaseView
 from client.views.view_action import ViewAction
-from shared.messages import StateUpdateMsg, GameOverMsg, MoveMsg, JumpMsg, MoveAckMsg, OpponentDisconnectedMsg
+from shared.messages import StateUpdateMsg, GameOverMsg, MoveMsg, JumpMsg, MoveAckMsg, JumpAckMsg, OpponentDisconnectedMsg
 from shared.enums import Color
 
 
@@ -63,6 +63,8 @@ class GameView(BaseView):
             self._mirror.apply_state_update(msg.board, msg.time_ms, msg.motions)
         elif isinstance(msg, MoveAckMsg):
             self._event_adapter.on_move_ack(msg)
+        elif isinstance(msg, JumpAckMsg):
+            self._event_adapter.on_jump_ack(msg)
         elif isinstance(msg, OpponentDisconnectedMsg):
             self._disconnect_countdown = msg.grace_s
         elif isinstance(msg, GameOverMsg):

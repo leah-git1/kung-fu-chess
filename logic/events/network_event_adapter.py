@@ -4,7 +4,6 @@ from events.game_events import PieceMovedEvent, PieceCapturedEvent, GameOverEven
 class NetworkEventAdapter:
     """
     Translates incoming server messages and mirror callbacks into bus events.
-    Mirrors the role of GameEventSource for the networked client path.
     """
 
     def __init__(self, bus, mirror):
@@ -12,14 +11,24 @@ class NetworkEventAdapter:
         self._mirror = mirror
 
     def on_move_ack(self, msg) -> None:
-        piece = self._mirror.get_piece_at(tuple(msg.from_cell))
-        if piece is None:
-            piece = self._mirror.get_piece_at(tuple(msg.to_cell))
+        piece = (self._mirror.get_piece_at(tuple(msg.from_cell))
+                 or self._mirror.get_piece_at(tuple(msg.to_cell)))
         if piece is not None:
             self._bus.publish(PieceMovedEvent(
                 color=piece.color,
                 origin=tuple(msg.from_cell),
                 destination=tuple(msg.to_cell),
+                elapsed_ms=msg.time_ms,
+                piece_name=piece.sprite_key[1],
+            ))
+
+    def on_jump_ack(self, msg) -> None:
+        piece = self._mirror.get_piece_at(tuple(msg.cell))
+        if piece is not None:
+            self._bus.publish(PieceMovedEvent(
+                color=piece.color,
+                origin=tuple(msg.cell),
+                destination=tuple(msg.cell),
                 elapsed_ms=msg.time_ms,
                 piece_name=piece.sprite_key[1],
             ))

@@ -23,7 +23,7 @@ from client.views.matchmaking_view import MatchmakingView
 from client.views.room_dialog_view import RoomDialogView
 from client.views.room_waiting_view import RoomWaitingView
 from client.views.game_view import GameView
-from shared.messages import RoomStateMsg, RoomErrorMsg, TokenMsg, ShardConnectMsg
+from shared.messages import RoomStateMsg, RoomErrorMsg, TokenMsg, ShardConnectMsg, StateUpdateMsg
 from shared.constants import DEFAULT_PORT
 from shared.enums import Color
 from client.log_utils.client_logger import log
@@ -41,9 +41,9 @@ class GameClientApp:
         )
         self._vm = self._build_view_manager()
         self._registry = {
-            RoomStateMsg:     self._on_game_start,
-            RoomErrorMsg:     self._on_room_error,
-            ShardConnectMsg:  self._on_shard_connect,
+            RoomStateMsg:    self._on_game_start,
+            RoomErrorMsg:    self._on_room_error,
+            ShardConnectMsg: self._on_shard_connect,
         }
 
     def _build_view_manager(self) -> ViewManager:
@@ -51,6 +51,7 @@ class GameClientApp:
         ctx   = lambda: {"app_state": s, "ws_client": ws}
         vm = ViewManager()
         vm.register(ViewAction.GOTO_HOME,         HomeView(),         ctx)
+        vm.register(ViewAction.GOTO_CONNECTING,   ConnectingView())
         vm.register(ViewAction.GOTO_MATCHMAKING,  MatchmakingView())
         vm.register(ViewAction.GOTO_ROOM_DIALOG,  RoomDialogView(),   ctx)
         vm.register(ViewAction.GOTO_ROOM_WAITING, RoomWaitingView(),  ctx)
@@ -109,26 +110,38 @@ class GameClientApp:
             self._vm.switch(action)
 
     def _on_shard_connect(self, msg: ShardConnectMsg) -> None:
-        """Server told us to connect to the game shard directly."""
         players = msg.players
         self._state.white_name = players[0]
         self._state.black_name = players[1]
-        self._state.color  = Color(msg.color) if msg.color else Color.SPECTATOR
+        self._state.color   = Color(msg.color) if msg.color else Color.SPECTATOR
         self._state.room_id = msg.room_id
         log(f"connecting to shard {msg.shard_url} room={msg.room_id} color={msg.color}")
-        # replace the WS connection with one pointing at the shard
+        # register handler BEFORE reconnect so no StateUpdateMsg can slip through
+        self._registry[StateUpdateMsg] = self._on_first_state_update
         self._ws.reconnect(msg.shard_url, first_msg={
             "type": "shard_join",
             "room_id": msg.room_id,
             "token": msg.token,
             "color": msg.color,
         })
+        self._vm.switch(ViewAction.GOTO_CONNECTING, extra={"status": "Joining game…"})
+
+    def _on_first_state_update(self, msg: StateUpdateMsg) -> None:
+        del self._registry[StateUpdateMsg]
         self._vm.switch(ViewAction.GOTO_GAME)
+        self._vm.handle_server_message(msg)
+
 
     def _on_room_state_pre_start(self, msg: RoomStateMsg) -> None:
-        """RoomStateMsg(started=False) — server confirmed auth, we're in lobby."""
+        """RoomStateMsg(started=False) — either lobby confirmation or room waiting update."""
         self._state.room_id = msg.room_id
-        self._vm.switch(ViewAction.GOTO_HOME)
+        from client.views.connecting_view import ConnectingView
+        from client.views.room_waiting_view import RoomWaitingView
+        if isinstance(self._vm.current, (ConnectingView, type(None))):
+            self._vm.switch(ViewAction.GOTO_HOME)
+        elif isinstance(self._vm.current, RoomWaitingView):
+            # joiner got confirmation — update room_id display, stay on waiting screen
+            self._vm.handle_server_message(msg)
 
     def _on_game_start(self, msg: RoomStateMsg) -> None:
         if not msg.started:

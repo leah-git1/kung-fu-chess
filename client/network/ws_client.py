@@ -76,7 +76,13 @@ class WsClient:
             self._reconnect_event.clear()
             await self._connect()
             if not self._reconnect_event.is_set():
-                break  # connection ended without a reconnect request
+                # Connection dropped without an explicit reconnect request.
+                # Wait briefly in case the main thread is about to call reconnect()
+                # (e.g. server closed the socket right before ShardConnectMsg was processed).
+                try:
+                    await asyncio.wait_for(self._reconnect_event.wait(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    break  # no reconnect requested within 2s — truly done
             self._outbound = asyncio.Queue()  # fresh queue for new connection
 
     async def _connect(self) -> None:
