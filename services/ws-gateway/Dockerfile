@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org websockets httpx redis
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org websockets httpx redis nats-py
 
 COPY shared/              shared/
 COPY logic/               logic/

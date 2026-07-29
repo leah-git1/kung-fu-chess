@@ -4,22 +4,29 @@ Matchmaker Service — ELO-based queue stored in Redis.
 POST   /queue              { name: str, rating: int }  → 202 enqueued
 DELETE /queue/{name}                                   → 204 removed
 GET    /queue/{name}/match                             → { matched: bool, opponent: str|null, opponent_rating: int|null }
+
+On each match the service also publishes to NATS subject kfc.matched:
+  { white: str, black: str, white_rating: int, black_rating: int }
+(white = lexicographically smaller name, matching WS Gateway color assignment)
 """
 import os
 import json
+import asyncio
 import threading
 import time
 import redis
+import nats
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 app = FastAPI()
 
-_ELO_RANGE   = 100
-_QUEUE_KEY   = "mm:queue"       # Redis list of JSON entries
-_MATCH_KEY   = "mm:match:{}"   # Redis key per player → opponent JSON, TTL 60s
-_MATCH_TTL   = 60
+_ELO_RANGE  = 100
+_QUEUE_KEY  = "mm:queue"
+_MATCH_KEY  = "mm:match:{}"
+_MATCH_TTL  = 60
+_NATS_URL   = os.getenv("NATS_URL", "nats://localhost:4222")
+_SUBJECT    = "kfc.matched"
 
 
 def _r() -> redis.Redis:
@@ -30,6 +37,32 @@ def _r() -> redis.Redis:
 class EnqueueRequest(BaseModel):
     name: str
     rating: int
+
+
+# ── NATS publisher (runs in its own thread with its own event loop) ───────────
+
+_nats_loop: asyncio.AbstractEventLoop | None = None
+_nc = None   # nats.aio.client.Client, set once connected
+
+
+async def _nats_main():
+    global _nc
+    _nc = await nats.connect(_NATS_URL)
+
+
+def _start_nats_thread():
+    global _nats_loop
+    _nats_loop = asyncio.new_event_loop()
+    _nats_loop.run_until_complete(_nats_main())
+    _nats_loop.run_forever()
+
+
+def _publish_matched(white: str, black: str, wr: int, br: int):
+    if _nc is None or _nats_loop is None:
+        return
+    payload = json.dumps({"white": white, "black": black,
+                          "white_rating": wr, "black_rating": br}).encode()
+    asyncio.run_coroutine_threadsafe(_nc.publish(_SUBJECT, payload), _nats_loop)
 
 
 # ── background match loop ─────────────────────────────────────────────────────
@@ -57,10 +90,12 @@ def _match_loop():
                     r.set(_MATCH_KEY.format(b["name"]),
                           json.dumps({"opponent": a["name"], "opponent_rating": a["rating"]}),
                           ex=_MATCH_TTL)
+                    white, black = (a, b) if a["name"] < b["name"] else (b, a)
+                    _publish_matched(white["name"], black["name"],
+                                     white["rating"], black["rating"])
                     break
 
         if matched:
-            # remove matched players from the queue
             remaining = [e for e in raw_entries
                          if json.loads(e)["name"] not in matched]
             pipe = r.pipeline()
@@ -72,8 +107,9 @@ def _match_loop():
 
 @app.on_event("startup")
 def startup():
-    t = threading.Thread(target=_match_loop, daemon=True)
-    t.start()
+    threading.Thread(target=_start_nats_thread, daemon=True).start()
+    time.sleep(0.5)   # give NATS thread a moment to connect
+    threading.Thread(target=_match_loop, daemon=True).start()
 
 
 # ── endpoints ─────────────────────────────────────────────────────────────────
@@ -81,7 +117,6 @@ def startup():
 @app.post("/queue", status_code=202)
 def enqueue(req: EnqueueRequest):
     r = _r()
-    # avoid duplicates
     for raw in r.lrange(_QUEUE_KEY, 0, -1):
         if json.loads(raw)["name"] == req.name:
             return {"status": "already queued"}

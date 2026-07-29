@@ -15,6 +15,11 @@ services:
     ports:
       - "6379:6379"
 
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "4222:4222"
+
   # ── shared backend image (auth, rooms-api, rating) ────────────────────────
   auth-service:
     build:
@@ -60,8 +65,10 @@ services:
       - "8003"
     environment:
       - REDIS_HOST=redis
+      - NATS_URL=nats://nats:4222
     depends_on:
       - redis
+      - nats
 
   game-allocator:
     build:
@@ -71,11 +78,13 @@ services:
       - "8004"
     environment:
       - REDIS_HOST=redis
+      - NATS_URL=nats://nats:4222
       - ROOMS_HOST=rooms-api
       - ROOMS_PORT=8001
-      - SHARD_ADDR=game-shard:5556
+      - SHARD_PUBLIC_HOST=localhost
     depends_on:
       - redis
+      - nats
       - rooms-api
       - game-shard
 
@@ -118,6 +127,7 @@ services:
       - "5555:5555"
     environment:
       - REDIS_HOST=redis
+      - NATS_URL=nats://nats:4222
       - MM_HOST=matchmaker
       - MM_PORT=8003
       - ROOMS_HOST=rooms-api
@@ -127,6 +137,7 @@ services:
       - WS_PORT=5555
     depends_on:
       - redis
+      - nats
       - api-gateway
       - rooms-api
       - matchmaker

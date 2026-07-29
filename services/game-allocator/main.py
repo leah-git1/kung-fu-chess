@@ -1,24 +1,34 @@
 """
 Game Allocator — assigns a matched pair to the least-loaded game-shard worker.
 
-POST /allocate  { white: str, black: str }
-  → calls rooms-api for a room_id
-  → reads shard:worker:* heartbeat keys from Redis, picks least-loaded worker
-  → writes shard:{room_id} = {host, port, pid, white, black} into Redis
-  → returns { room_id, shard_url }
+Subscribes to NATS subject kfc.matched:
+  { white, black, white_rating, black_rating }
+  → picks least-loaded worker from Redis shard:worker:* heartbeats
+  → writes shard:{room_id} into Redis
+  → publishes kfc.allocated: { room_id, shard_url, white, black }
+
+Also exposes POST /allocate for direct HTTP calls (room-create path).
 """
 import os
 import json
+import asyncio
 import httpx
 import redis
+import nats
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+_ROOMS_URL          = f"http://{os.getenv('ROOMS_HOST', 'localhost')}:{os.getenv('ROOMS_PORT', '8001')}"
+_NATS_URL           = os.getenv("NATS_URL", "nats://localhost:4222")
+_SHARD_PUBLIC_HOST  = os.getenv("SHARD_PUBLIC_HOST", "localhost")
+_SHARD_TTL          = 7200
+_SUB_SUBJECT = "kfc.matched"
+_PUB_SUBJECT = "kfc.allocated"
 
-_ROOMS_URL = f"http://{os.getenv('ROOMS_HOST', 'localhost')}:{os.getenv('ROOMS_PORT', '8001')}"
-_SHARD_TTL = 7200
+_nc = None   # nats client, set on startup
 
 
 def _r() -> redis.Redis:
@@ -27,18 +37,58 @@ def _r() -> redis.Redis:
 
 
 def _pick_worker(r: redis.Redis) -> dict | None:
-    """Return the heartbeat payload of the least-loaded live worker, or None."""
     keys = r.keys("shard:worker:*")
     if not keys:
         return None
-    workers = []
-    for key in keys:
-        raw = r.get(key)
-        if raw:
-            workers.append(json.loads(raw))
-    if not workers:
+    workers = [json.loads(v) for k in keys if (v := r.get(k))]
+    return min(workers, key=lambda w: w["rooms"]) if workers else None
+
+
+def _do_allocate(white: str, black: str) -> dict | None:
+    """Create room, pick worker, write Redis. Returns allocation dict or None."""
+    try:
+        resp = httpx.post(f"{_ROOMS_URL}/rooms",
+                          json={"creator": white}, timeout=5.0)
+        resp.raise_for_status()
+    except httpx.RequestError:
         return None
-    return min(workers, key=lambda w: w["rooms"])
+
+    room_id = resp.json()["room_id"]
+    r = _r()
+    worker = _pick_worker(r)
+    if worker is None:
+        return None
+
+    r.set(f"shard:{room_id}",
+          json.dumps({"host": worker["host"], "port": worker["port"],
+                      "white": white, "black": black}),
+          ex=_SHARD_TTL)
+
+    return {"room_id": room_id,
+            "shard_url": f"ws://{_SHARD_PUBLIC_HOST}:{worker['port']}",
+            "white": white, "black": black}
+
+
+async def _on_matched(msg) -> None:
+    data = json.loads(msg.data.decode())
+    white, black = data["white"], data["black"]
+    alloc = await asyncio.get_event_loop().run_in_executor(
+        None, _do_allocate, white, black
+    )
+    if alloc and _nc:
+        await _nc.publish(_PUB_SUBJECT, json.dumps(alloc).encode())
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _nc
+    _nc = await nats.connect(_NATS_URL)
+    await _nc.subscribe(_SUB_SUBJECT, cb=_on_matched)
+    yield
+    await _nc.drain()
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 class AllocateRequest(BaseModel):
@@ -47,25 +97,12 @@ class AllocateRequest(BaseModel):
 
 
 @app.post("/allocate")
-def allocate(req: AllocateRequest):
-    try:
-        resp = httpx.post(f"{_ROOMS_URL}/rooms",
-                          json={"creator": req.white}, timeout=5.0)
-        resp.raise_for_status()
-    except httpx.RequestError as e:
-        return JSONResponse(status_code=503, content={"error": f"rooms-api unavailable: {e}"})
-
-    room_id = resp.json()["room_id"]
-
-    r = _r()
-    worker = _pick_worker(r)
-    if worker is None:
-        return JSONResponse(status_code=503, content={"error": "no live shard workers"})
-
-    r.set(f"shard:{room_id}",
-          json.dumps({"host": worker["host"], "port": worker["port"],
-                      "white": req.white, "black": req.black}),
-          ex=_SHARD_TTL)
-
-    shard_url = f"ws://{worker['host']}:{worker['port']}"
-    return {"room_id": room_id, "shard_url": shard_url}
+async def allocate(req: AllocateRequest):
+    alloc = await asyncio.get_event_loop().run_in_executor(
+        None, _do_allocate, req.white, req.black
+    )
+    if alloc is None:
+        return JSONResponse(status_code=503, content={"error": "allocation failed"})
+    if _nc:
+        await _nc.publish(_PUB_SUBJECT, json.dumps(alloc).encode())
+    return {"room_id": alloc["room_id"], "shard_url": alloc["shard_url"]}

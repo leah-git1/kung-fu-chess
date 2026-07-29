@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.join(_ROOT, "logic"))
 sys.path.insert(0, _ROOT)
 
 import httpx
+import nats
 import redis.asyncio as aioredis
 import websockets
 from websockets.exceptions import ConnectionClosed
@@ -39,10 +40,14 @@ from server.logging.server_logger import log
 _MM_URL        = f"http://{os.getenv('MM_HOST','localhost')}:{os.getenv('MM_PORT','8003')}"
 _ROOMS_URL     = f"http://{os.getenv('ROOMS_HOST','localhost')}:{os.getenv('ROOMS_PORT','8001')}"
 _ALLOCATOR_URL = f"http://{os.getenv('ALLOCATOR_HOST','localhost')}:{os.getenv('ALLOCATOR_PORT','8004')}"
+_NATS_URL      = os.getenv("NATS_URL", "nats://localhost:4222")
 _SESSION_TTL   = 300
 
 # in-process registry of connections waiting for a match (same-process only)
 _pending: dict[str, PlayerConnection] = {}
+# futures resolved when kfc.allocated arrives for a player: name → Future
+_alloc_futures: dict[str, asyncio.Future] = {}
+_nc = None   # nats client
 
 
 def _r() -> aioredis.Redis:
@@ -108,58 +113,48 @@ async def _on_connect(websocket) -> None:
 
 # ── matchmaking ───────────────────────────────────────────────────────────────
 
+async def _on_allocated(msg) -> None:
+    """NATS handler for kfc.allocated — resolves the waiting future for each player."""
+    data = json.loads(msg.data.decode())
+    for name in (data["white"], data["black"]):
+        fut = _alloc_futures.get(name)
+        if fut and not fut.done():
+            fut.set_result(data)
+
+
 async def _handle_matchmaking(msg: PlayRequestMsg, conn: PlayerConnection) -> None:
     log(f"{conn.name} searching for game")
     async with httpx.AsyncClient() as client:
         await client.post(f"{_MM_URL}/queue",
                           json={"name": conn.name, "rating": conn.rating}, timeout=5.0)
+
     _pending[conn.name] = conn
-    deadline = asyncio.get_event_loop().time() + MATCH_TIMEOUT_S
+    fut: asyncio.Future = asyncio.get_event_loop().create_future()
+    _alloc_futures[conn.name] = fut
+
     try:
-        while asyncio.get_event_loop().time() < deadline:
-            await asyncio.sleep(1)
-            async with httpx.AsyncClient() as client:
-                resp = (await client.get(f"{_MM_URL}/queue/{conn.name}/match",
-                                         timeout=5.0)).json()
-            if resp["matched"]:
-                opponent_name = resp["opponent"]
-                conn.color = Color.WHITE if conn.name < opponent_name else Color.BLACK
-
-                if conn.color == Color.WHITE:
-                    opp_conn = _pending.get(opponent_name)
-                    if opp_conn is None:
-                        await asyncio.sleep(1)
-                        opp_conn = _pending.get(opponent_name)
-                    if opp_conn is None:
-                        log(f"opponent conn missing for {opponent_name}", level="warning")
-                        return
-
-                    async with httpx.AsyncClient() as client:
-                        alloc = (await client.post(f"{_ALLOCATOR_URL}/allocate",
-                                                   json={"white": conn.name, "black": opponent_name},
-                                                   timeout=5.0)).json()
-                    room_id   = alloc["room_id"]
-                    shard_url = alloc["shard_url"]
-                    log(f"allocated room {room_id} → {shard_url}")
-
-                    opp_conn.color = Color.BLACK
-                    players = [conn.name, opponent_name]
-                    for c, col in ((conn, Color.WHITE), (opp_conn, Color.BLACK)):
-                        await _safe_send(c, ShardConnectMsg(
-                            shard_url=shard_url, room_id=room_id,
-                            token=await _issue_token(c.name), color=col.value, players=players,
-                        ))
-                    _pending.pop(opponent_name, None)
-                    log(f"sent ShardConnectMsg for room {room_id}")
-                    await asyncio.sleep(3)  # keep socket open so client receives ShardConnectMsg
-                return
+        alloc = await asyncio.wait_for(fut, timeout=MATCH_TIMEOUT_S)
+    except asyncio.TimeoutError:
+        await conn.send(SearchTimeoutMsg())
+        log(f"{conn.name} search timed out")
+        return
     finally:
         _pending.pop(conn.name, None)
+        _alloc_futures.pop(conn.name, None)
         async with httpx.AsyncClient() as client:
             await client.delete(f"{_MM_URL}/queue/{conn.name}", timeout=5.0)
 
-    await conn.send(SearchTimeoutMsg())
-    log(f"{conn.name} search timed out")
+    room_id   = alloc["room_id"]
+    shard_url = alloc["shard_url"]
+    conn.color = Color.WHITE if conn.name == alloc["white"] else Color.BLACK
+    log(f"{conn.name} allocated room {room_id} → {shard_url}")
+
+    players = [alloc["white"], alloc["black"]]
+    await _safe_send(conn, ShardConnectMsg(
+        shard_url=shard_url, room_id=room_id,
+        token=await _issue_token(conn.name), color=conn.color.value, players=players,
+    ))
+    await asyncio.sleep(3)
 
 
 # ── room: create ──────────────────────────────────────────────────────────────
@@ -246,7 +241,10 @@ async def _safe_send(conn: PlayerConnection, msg) -> None:
 
 
 async def main() -> None:
+    global _nc
     port = int(os.getenv("WS_PORT", DEFAULT_PORT))
+    _nc = await nats.connect(_NATS_URL)
+    await _nc.subscribe("kfc.allocated", cb=_on_allocated)
     log(f"WS gateway listening on ws://0.0.0.0:{port}")
     async with websockets.serve(_on_connect, "0.0.0.0", port):
         await asyncio.Future()
