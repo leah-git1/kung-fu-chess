@@ -1,4 +1,15 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kfc
+      POSTGRES_PASSWORD: kfc
+      POSTGRES_DB: kfc
+    ports:
+      - "5432:5432"
+    volumes:
+      - kfc-pg:/var/lib/postgresql/data
+
   redis:
     image: redis:7-alpine
     ports:
@@ -13,8 +24,10 @@ services:
     command: uvicorn services.backend.auth.main:app --host 0.0.0.0 --port 8000
     expose:
       - "8000"
-    volumes:
-      - kfc-db:/app/server/db
+    environment:
+      - DATABASE_URL=postgresql://kfc:kfc@postgres:5432/kfc
+    depends_on:
+      - postgres
 
   rooms-api:
     image: kfc-backend
@@ -32,10 +45,11 @@ services:
     command: uvicorn services.backend.rating.main:app --host 0.0.0.0 --port 8002
     expose:
       - "8002"
-    volumes:
-      - kfc-db:/app/server/db
+    environment:
+      - DATABASE_URL=postgresql://kfc:kfc@postgres:5432/kfc
     depends_on:
       - auth-service   # ensures kfc-backend image is built first
+      - postgres
 
   # ── dedicated images ──────────────────────────────────────────────────────
   matchmaker:
@@ -71,8 +85,6 @@ services:
       dockerfile: services/game-shard/Dockerfile
     ports:
       - "5556:5556"
-    volumes:
-      - kfc-db:/app/server/db
     environment:
       - REDIS_HOST=redis
       - RATING_HOST=rating-service
@@ -121,4 +133,4 @@ services:
       - game-shard
 
 volumes:
-  kfc-db:
+  kfc-pg:

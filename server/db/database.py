@@ -1,47 +1,56 @@
-"""SQLite connection and raw CRUD for the users table."""
-import sqlite3
+"""PostgreSQL connection and raw CRUD for the users table."""
 import os
+import psycopg2
+import psycopg2.extras
 from shared.constants import ELO_DEFAULT
 
-_DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+_DSN = os.environ["DATABASE_URL"]
 
 
-def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(_DB_PATH)
-    conn.row_factory = sqlite3.Row
+def _connect() -> psycopg2.extensions.connection:
+    conn = psycopg2.connect(_DSN)
+    conn.autocommit = False
     return conn
 
 
 def init_db() -> None:
     with _connect() as conn:
-        conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS users (
-                user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                username      TEXT    NOT NULL UNIQUE,
-                password_hash TEXT    NOT NULL,
-                rating        INTEGER NOT NULL DEFAULT {ELO_DEFAULT}
-            )
-        """)
+        with conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(1)")
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id       SERIAL PRIMARY KEY,
+                    username      TEXT   NOT NULL UNIQUE,
+                    password_hash TEXT   NOT NULL,
+                    rating        INTEGER NOT NULL DEFAULT {ELO_DEFAULT}
+                )
+            """)
+        conn.commit()
 
 
 def insert_user(username: str, password_hash: str) -> int:
     with _connect() as conn:
-        cursor = conn.execute(
-            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-            (username, password_hash),
-        )
-        return cursor.lastrowid
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING user_id",
+                (username, password_hash),
+            )
+            user_id = cur.fetchone()[0]
+        conn.commit()
+        return user_id
 
 
-def fetch_user(username: str) -> sqlite3.Row | None:
+def fetch_user(username: str) -> dict | None:
     with _connect() as conn:
-        return conn.execute(
-            "SELECT * FROM users WHERE username = ?", (username,)
-        ).fetchone()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+            return cur.fetchone()
 
 
 def set_rating(username: str, rating: int) -> None:
     with _connect() as conn:
-        conn.execute(
-            "UPDATE users SET rating = ? WHERE username = ?", (rating, username)
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET rating = %s WHERE username = %s", (rating, username)
+            )
+        conn.commit()
