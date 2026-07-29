@@ -1,12 +1,10 @@
 """
-Rating Service — updates ELO after a game result.
+Rating Service — ELO update at game-end.
 
-POST /rate   { winner: str, loser: str }  → { winner_rating: int, loser_rating: int }
+POST /rate  { winner, loser }  → { winner_rating, loser_rating }
 """
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
 import sqlite3
+import os
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel

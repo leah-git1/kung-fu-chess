@@ -1,9 +1,9 @@
 """
-Rooms API — manages the room_id registry in Redis.
+Rooms API — room_id registry in Redis.
 
-POST   /rooms                → generate unique room_id, write to Redis, return {room_id}
-GET    /rooms/{room_id}      → check existence, return {exists: bool}
-DELETE /rooms/{room_id}      → remove from Redis
+POST   /rooms              { creator }  → { room_id }
+GET    /rooms/{room_id}                 → { exists: bool }
+DELETE /rooms/{room_id}                 → 204
 """
 import os
 import uuid
@@ -24,13 +24,13 @@ def _r() -> redis.Redis:
 
 
 class CreateRequest(BaseModel):
-    creator: str  # username of the player creating the room
+    creator: str
 
 
 @app.post("/rooms", status_code=201)
 def create_room(req: CreateRequest):
     r = _r()
-    for _ in range(20):  # bounded retry for uniqueness
+    for _ in range(20):
         room_id = uuid.uuid4().hex[:_ROOM_ID_LENGTH].upper()
         if not r.exists(f"room:{room_id}"):
             r.set(f"room:{room_id}", req.creator, ex=_ROOM_TTL_S)

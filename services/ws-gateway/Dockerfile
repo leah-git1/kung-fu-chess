@@ -9,7 +9,7 @@ COPY logic/               logic/
 COPY server/session/      server/session/
 COPY server/logging/      server/logging/
 COPY server/__init__.py   server/__init__.py
-COPY ws-gateway/main.py   ws_gateway.py
+COPY services/ws-gateway/main.py   ws_gateway.py
 
 EXPOSE 5555
 

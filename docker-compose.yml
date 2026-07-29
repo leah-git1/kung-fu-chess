@@ -4,62 +4,71 @@ services:
     ports:
       - "6379:6379"
 
+  # ── shared backend image (auth, rooms-api, rating) ────────────────────────
   auth-service:
     build:
       context: .
-      dockerfile: auth-service/Dockerfile
+      dockerfile: services/backend/Dockerfile
+    image: kfc-backend
+    command: uvicorn services.backend.auth.main:app --host 0.0.0.0 --port 8000
+    expose:
+      - "8000"
     volumes:
       - kfc-db:/app/server/db
 
-  api-gateway:
-    build:
-      context: .
-      dockerfile: api-gateway/Dockerfile
-    ports:
-      - "8080:8080"
-    environment:
-      - AUTH_HOST=auth-service
-      - AUTH_PORT=8000
-      - REDIS_HOST=redis
-    depends_on:
-      - auth-service
-      - redis
-
   rooms-api:
-    build:
-      context: .
-      dockerfile: rooms-api/Dockerfile
-    ports:
-      - "8001:8001"
+    image: kfc-backend
+    command: uvicorn services.backend.rooms_api.main:app --host 0.0.0.0 --port 8001
+    expose:
+      - "8001"
     environment:
       - REDIS_HOST=redis
     depends_on:
-      - redis
-
-  matchmaker-service:
-    build:
-      context: .
-      dockerfile: matchmaker-service/Dockerfile
-    ports:
-      - "8003:8003"
-    environment:
-      - REDIS_HOST=redis
-    depends_on:
+      - auth-service   # ensures kfc-backend image is built first
       - redis
 
   rating-service:
-    build:
-      context: .
-      dockerfile: rating-service/Dockerfile
-    ports:
-      - "8002:8002"
+    image: kfc-backend
+    command: uvicorn services.backend.rating.main:app --host 0.0.0.0 --port 8002
+    expose:
+      - "8002"
     volumes:
       - kfc-db:/app/server/db
+    depends_on:
+      - auth-service   # ensures kfc-backend image is built first
+
+  # ── dedicated images ──────────────────────────────────────────────────────
+  matchmaker:
+    build:
+      context: .
+      dockerfile: services/matchmaker/Dockerfile
+    expose:
+      - "8003"
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+
+  game-allocator:
+    build:
+      context: .
+      dockerfile: services/game-allocator/Dockerfile
+    expose:
+      - "8004"
+    environment:
+      - REDIS_HOST=redis
+      - ROOMS_HOST=rooms-api
+      - ROOMS_PORT=8001
+      - SHARD_ADDR=game-shard:5556
+    depends_on:
+      - redis
+      - rooms-api
+      - game-shard
 
   game-shard:
     build:
       context: .
-      dockerfile: game-shard/Dockerfile
+      dockerfile: services/game-shard/Dockerfile
     ports:
       - "5556:5556"
     volumes:
@@ -73,31 +82,29 @@ services:
       - redis
       - rating-service
 
-  game-allocator:
+  api-gateway:
     build:
       context: .
-      dockerfile: game-allocator/Dockerfile
+      dockerfile: services/api-gateway/Dockerfile
     ports:
-      - "8004:8004"
+      - "8080:8080"
     environment:
+      - AUTH_HOST=auth-service
+      - AUTH_PORT=8000
       - REDIS_HOST=redis
-      - ROOMS_HOST=rooms-api
-      - ROOMS_PORT=8001
-      - SHARD_ADDR=game-shard:5556
     depends_on:
+      - auth-service
       - redis
-      - rooms-api
-      - game-shard
 
   ws-gateway:
     build:
       context: .
-      dockerfile: ws-gateway/Dockerfile
+      dockerfile: services/ws-gateway/Dockerfile
     ports:
       - "5555:5555"
     environment:
       - REDIS_HOST=redis
-      - MM_HOST=matchmaker-service
+      - MM_HOST=matchmaker
       - MM_PORT=8003
       - ROOMS_HOST=rooms-api
       - ROOMS_PORT=8001
@@ -109,7 +116,7 @@ services:
       - redis
       - api-gateway
       - rooms-api
-      - matchmaker-service
+      - matchmaker
       - game-allocator
       - game-shard
 
